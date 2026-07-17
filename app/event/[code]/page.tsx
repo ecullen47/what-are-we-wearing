@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import OutfitPostForm from '@/components/OutfitPostForm'
 import { getGuestToken, getMyPostIds, removeMyPostId } from '@/lib/guestIdentity'
@@ -121,6 +122,7 @@ export default function EventPage() {
 
   return (
     <div style={{ padding: '2rem', maxWidth: '700px', margin: '0 auto' }}>
+      {isHost && <Link href="/dashboard">&larr; Back to Dashboard</Link>}
       <h1>{event.name}</h1>
 
       {event.inspo_image_urls.length > 0 && (
