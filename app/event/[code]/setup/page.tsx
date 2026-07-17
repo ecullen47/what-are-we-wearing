@@ -28,6 +28,7 @@ export default function EventSetupPage() {
   const [requiredColors, setRequiredColors] = useState('')
   const [suggestedColors, setSuggestedColors] = useState('')
   const [offLimitColors, setOffLimitColors] = useState('')
+  const [showInviteCode, setShowInviteCode] = useState(true)
   const [message, setMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -79,6 +80,7 @@ export default function EventSetupPage() {
           required_colors: parseColorList(requiredColors),
           suggested_colors: parseColorList(suggestedColors),
           off_limit_colors: parseColorList(offLimitColors),
+          show_invite_code_to_guests: showInviteCode,
         })
         .eq('id', event.id)
 
@@ -136,6 +138,15 @@ export default function EventSetupPage() {
         placeholder="e.g. dusty rose (bridesmaid color)"
         style={{ display: 'block', marginBottom: '1rem', width: '100%', padding: '0.5rem' }}
       />
+
+      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+        <input
+          type="checkbox"
+          checked={showInviteCode}
+          onChange={(e) => setShowInviteCode(e.target.checked)}
+        />
+        Show invite code to guests on the event page
+      </label>
 
       <button onClick={handleSubmit} disabled={submitting} style={{ marginRight: '1rem' }}>
         {submitting ? 'Saving...' : 'Save & Continue'}

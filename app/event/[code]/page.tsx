@@ -16,6 +16,8 @@ type EventData = {
   event_type: string
   dress_code_text: string
   invite_code: string
+  host_display_name: string | null
+  show_invite_code_to_guests: boolean
   inspo_image_urls: string[]
   required_colors: string[]
   suggested_colors: string[]
@@ -55,6 +57,7 @@ export default function EventPage() {
   const [editFile, setEditFile] = useState<File | null>(null)
   const [editSubmitting, setEditSubmitting] = useState(false)
   const [editMessage, setEditMessage] = useState('')
+  const [copied, setCopied] = useState(false)
 
   const loadPosts = useCallback(async () => {
     const { data } = await supabase.rpc('get_outfit_posts_by_code', { p_code: code })
@@ -179,6 +182,12 @@ export default function EventPage() {
     }
   }, [event])
 
+  const handleCopyLink = async () => {
+    await navigator.clipboard.writeText(window.location.href)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
   if (loading) {
     return <div style={{ padding: '2rem' }}>Loading...</div>
   }
@@ -190,7 +199,17 @@ export default function EventPage() {
   return (
     <div style={{ padding: '2rem', maxWidth: '700px', margin: '0 auto' }}>
       {(isHost || isAttending) && <Link href="/dashboard">&larr; Back to Dashboard</Link>}
+      {event.host_display_name && <p style={{ margin: 0, color: '#666' }}>Hosted by {event.host_display_name}</p>}
       <h1>{event.name}</h1>
+
+      {event.show_invite_code_to_guests && (
+        <p style={{ fontSize: '0.875rem' }}>
+          Invite code: <strong>{event.invite_code}</strong>{' '}
+          <button onClick={handleCopyLink} style={{ fontSize: '0.75rem' }}>
+            {copied ? 'Copied!' : 'Copy link to share'}
+          </button>
+        </p>
+      )}
 
       {event.inspo_image_urls.length > 0 && (
         <div

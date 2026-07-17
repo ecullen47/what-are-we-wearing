@@ -10,6 +10,7 @@ function generateInviteCode() {
 }
 
 export default function CreateEventPage() {
+  const [hostDisplayName, setHostDisplayName] = useState('')
   const [name, setName] = useState('')
   const [eventDate, setEventDate] = useState('')
   const [location, setLocation] = useState('')
@@ -27,12 +28,18 @@ export default function CreateEventPage() {
       return
     }
 
+    if (!hostDisplayName.trim()) {
+      setMessage('Please enter your name.')
+      return
+    }
+
     const inviteCode = generateInviteCode()
 
     const { data, error } = await supabase
       .from('events')
       .insert({
         host_id: user.id,
+        host_display_name: hostDisplayName.trim(),
         name,
         event_date: eventDate,
         location,
@@ -55,6 +62,14 @@ export default function CreateEventPage() {
     <div style={{ padding: '2rem', maxWidth: '500px' }}>
       <Link href="/dashboard">&larr; Back to Dashboard</Link>
       <h1>Create an Event</h1>
+
+      <label>Your Name</label>
+      <input
+        value={hostDisplayName}
+        onChange={(e) => setHostDisplayName(e.target.value)}
+        placeholder="Shown to guests as the host"
+        style={{ display: 'block', marginBottom: '1rem', width: '100%', padding: '0.5rem' }}
+      />
 
       <label>Event Name</label>
       <input
