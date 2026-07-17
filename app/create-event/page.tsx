@@ -9,6 +9,10 @@ function generateInviteCode() {
   return Math.random().toString(36).substring(2, 8).toUpperCase()
 }
 
+const inputClass =
+  'block w-full rounded-md border border-stone-line bg-white px-4 py-2 text-stone placeholder:text-stone-muted focus:border-terracotta focus:outline-none'
+const labelClass = 'mb-1 block text-sm font-medium text-stone'
+
 export default function CreateEventPage() {
   const [hostDisplayName, setHostDisplayName] = useState('')
   const [name, setName] = useState('')
@@ -59,62 +63,71 @@ export default function CreateEventPage() {
   }
 
   return (
-    <div style={{ padding: '2rem', maxWidth: '500px' }}>
-      <Link href="/dashboard">&larr; Back to Dashboard</Link>
-      <h1>Create an Event</h1>
+    <div className="mx-auto max-w-lg px-6 py-12">
+      <Link href="/dashboard" className="text-sm text-terracotta hover:underline">
+        &larr; Back to Dashboard
+      </Link>
+      <h1 className="mt-3 font-display text-3xl text-stone">Create an Event</h1>
 
-      <label>Your Name</label>
-      <input
-        value={hostDisplayName}
-        onChange={(e) => setHostDisplayName(e.target.value)}
-        placeholder="Shown to guests as the host"
-        style={{ display: 'block', marginBottom: '1rem', width: '100%', padding: '0.5rem' }}
-      />
+      <div className="mt-6 space-y-4">
+        <div>
+          <label className={labelClass}>Your Name</label>
+          <input
+            value={hostDisplayName}
+            onChange={(e) => setHostDisplayName(e.target.value)}
+            placeholder="Shown to guests as the host"
+            className={inputClass}
+          />
+        </div>
 
-      <label>Event Name</label>
-      <input
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        style={{ display: 'block', marginBottom: '1rem', width: '100%', padding: '0.5rem' }}
-      />
+        <div>
+          <label className={labelClass}>Event Name</label>
+          <input value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />
+        </div>
 
-      <label>Date</label>
-      <input
-        type="date"
-        value={eventDate}
-        onChange={(e) => setEventDate(e.target.value)}
-        style={{ display: 'block', marginBottom: '1rem', width: '100%', padding: '0.5rem' }}
-      />
+        <div>
+          <label className={labelClass}>Date</label>
+          <input
+            type="date"
+            value={eventDate}
+            onChange={(e) => setEventDate(e.target.value)}
+            className={inputClass}
+          />
+        </div>
 
-      <label>Location</label>
-      <input
-        value={location}
-        onChange={(e) => setLocation(e.target.value)}
-        style={{ display: 'block', marginBottom: '1rem', width: '100%', padding: '0.5rem' }}
-      />
+        <div>
+          <label className={labelClass}>Location</label>
+          <input value={location} onChange={(e) => setLocation(e.target.value)} className={inputClass} />
+        </div>
 
-      <label>Event Type</label>
-      <select
-        value={eventType}
-        onChange={(e) => setEventType(e.target.value)}
-        style={{ display: 'block', marginBottom: '1rem', width: '100%', padding: '0.5rem' }}
+        <div>
+          <label className={labelClass}>Event Type</label>
+          <select value={eventType} onChange={(e) => setEventType(e.target.value)} className={inputClass}>
+            <option value="wedding">Wedding</option>
+            <option value="dinner">Dinner</option>
+            <option value="party">Party</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+
+        <div>
+          <label className={labelClass}>Dress Code</label>
+          <input
+            value={dressCode}
+            onChange={(e) => setDressCode(e.target.value)}
+            placeholder='e.g. "cocktail attire"'
+            className={inputClass}
+          />
+        </div>
+      </div>
+
+      <button
+        onClick={handleSubmit}
+        className="mt-6 rounded-full bg-terracotta px-6 py-2.5 font-medium text-cream transition-colors hover:bg-terracotta-dark"
       >
-        <option value="wedding">Wedding</option>
-        <option value="dinner">Dinner</option>
-        <option value="party">Party</option>
-        <option value="other">Other</option>
-      </select>
-
-      <label>Dress Code</label>
-      <input
-        value={dressCode}
-        onChange={(e) => setDressCode(e.target.value)}
-        placeholder='e.g. "cocktail attire"'
-        style={{ display: 'block', marginBottom: '1rem', width: '100%', padding: '0.5rem' }}
-      />
-
-      <button onClick={handleSubmit}>Create Event</button>
-      <p>{message}</p>
+        Create Event
+      </button>
+      {message && <p className="mt-3 text-sm text-stone-muted">{message}</p>}
     </div>
   )
 }

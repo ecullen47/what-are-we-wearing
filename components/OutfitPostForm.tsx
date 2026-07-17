@@ -11,6 +11,9 @@ type Props = {
   onPosted: () => void
 }
 
+const inputClass =
+  'block w-full rounded-md border border-stone-line bg-cream px-3 py-2 text-sm text-stone placeholder:text-stone-muted focus:border-terracotta focus:outline-none'
+
 export default function OutfitPostForm({ eventId, inviteCode, onPosted }: Props) {
   const [name, setName] = useState(() => getGuestName() ?? '')
   const [file, setFile] = useState<File | null>(null)
@@ -66,35 +69,38 @@ export default function OutfitPostForm({ eventId, inviteCode, onPosted }: Props)
   }
 
   return (
-    <div style={{ padding: '1rem', border: '1px solid #ddd', borderRadius: '0.5rem' }}>
-      <h3>Post Your Outfit</h3>
+    <div className="rounded-lg border border-stone-line bg-cream-dark/40 p-5">
+      <h3 className="font-display text-xl text-stone">Post Your Outfit</h3>
 
-      <label>Your Name</label>
-      <input
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        style={{ display: 'block', marginBottom: '1rem', width: '100%', padding: '0.5rem' }}
-      />
+      <div className="mt-4 space-y-3">
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Your Name"
+          className={inputClass}
+        />
+        <input
+          type="file"
+          accept="image/*"
+          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+          className="block w-full text-sm text-stone-muted file:mr-3 file:rounded-full file:border-0 file:bg-terracotta-light file:px-4 file:py-2 file:text-sm file:font-medium file:text-terracotta-dark"
+        />
+        <input
+          value={caption}
+          onChange={(e) => setCaption(e.target.value)}
+          placeholder="Caption (optional)"
+          className={inputClass}
+        />
+      </div>
 
-      <label>Photo</label>
-      <input
-        type="file"
-        accept="image/*"
-        onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-        style={{ display: 'block', marginBottom: '1rem', width: '100%' }}
-      />
-
-      <label>Caption (optional)</label>
-      <input
-        value={caption}
-        onChange={(e) => setCaption(e.target.value)}
-        style={{ display: 'block', marginBottom: '1rem', width: '100%', padding: '0.5rem' }}
-      />
-
-      <button onClick={handleSubmit} disabled={submitting}>
+      <button
+        onClick={handleSubmit}
+        disabled={submitting}
+        className="mt-4 rounded-full bg-terracotta px-5 py-2 text-sm font-medium text-cream transition-colors hover:bg-terracotta-dark disabled:opacity-50"
+      >
         {submitting ? 'Posting...' : 'Post Outfit'}
       </button>
-      <p>{message}</p>
+      {message && <p className="mt-2 text-sm text-stone-muted">{message}</p>}
     </div>
   )
 }
