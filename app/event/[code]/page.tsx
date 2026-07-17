@@ -16,6 +16,7 @@ type EventData = {
   event_type: string
   dress_code_text: string
   invite_code: string
+  host_display_name: string | null
   inspo_image_urls: string[]
   required_colors: string[]
   suggested_colors: string[]
@@ -190,6 +191,7 @@ export default function EventPage() {
   return (
     <div style={{ padding: '2rem', maxWidth: '700px', margin: '0 auto' }}>
       {(isHost || isAttending) && <Link href="/dashboard">&larr; Back to Dashboard</Link>}
+      {event.host_display_name && <p style={{ margin: 0, color: '#666' }}>Hosted by {event.host_display_name}</p>}
       <h1>{event.name}</h1>
 
       {event.inspo_image_urls.length > 0 && (
