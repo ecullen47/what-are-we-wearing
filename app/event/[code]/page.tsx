@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import OutfitPostForm from '@/components/OutfitPostForm'
 import { getGuestToken, getMyPostIds, removeMyPostId } from '@/lib/guestIdentity'
+import { uploadEventImage } from '@/lib/uploadImage'
 
 type EventData = {
   id: string
@@ -47,6 +48,12 @@ export default function EventPage() {
   const [notFound, setNotFound] = useState(false)
   const [isHost, setIsHost] = useState(false)
   const [myPostIds, setMyPostIds] = useState<string[]>([])
+  const [editingPostId, setEditingPostId] = useState<string | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editCaption, setEditCaption] = useState('')
+  const [editFile, setEditFile] = useState<File | null>(null)
+  const [editSubmitting, setEditSubmitting] = useState(false)
+  const [editMessage, setEditMessage] = useState('')
 
   const loadPosts = useCallback(async () => {
     const { data } = await supabase.rpc('get_outfit_posts_by_code', { p_code: code })
@@ -104,6 +111,57 @@ export default function EventPage() {
     }
 
     await loadPosts()
+  }
+
+  const handleStartEdit = (post: OutfitPost) => {
+    setEditingPostId(post.id)
+    setEditName(post.display_name)
+    setEditCaption(post.caption ?? '')
+    setEditFile(null)
+    setEditMessage('')
+  }
+
+  const handleCancelEdit = () => {
+    setEditingPostId(null)
+    setEditFile(null)
+    setEditMessage('')
+  }
+
+  const handleSaveEdit = async (post: OutfitPost) => {
+    if (!event) return
+    if (!editName.trim()) {
+      setEditMessage('Please enter a name.')
+      return
+    }
+
+    setEditSubmitting(true)
+    setEditMessage('')
+
+    try {
+      const imageUrl = editFile ? await uploadEventImage('outfit-posts', event.id, editFile) : post.image_url
+
+      const { error } = await supabase.rpc('update_own_outfit_post', {
+        p_code: code,
+        p_post_id: post.id,
+        p_guest_token: getGuestToken(),
+        p_display_name: editName.trim(),
+        p_image_url: imageUrl,
+        p_caption: editCaption.trim() || null,
+      })
+
+      if (error) {
+        setEditMessage(`Error: ${error.message}`)
+        setEditSubmitting(false)
+        return
+      }
+
+      setEditingPostId(null)
+      await loadPosts()
+    } catch (err) {
+      setEditMessage(`Error: ${err instanceof Error ? err.message : String(err)}`)
+    } finally {
+      setEditSubmitting(false)
+    }
   }
 
   useEffect(() => {
@@ -173,25 +231,59 @@ export default function EventPage() {
           gap: '0.5rem',
         }}
       >
-        {posts.map((post) => (
-          <div key={post.id}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={post.image_url}
-              alt={`${post.display_name}'s outfit`}
-              style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: '0.5rem' }}
-            />
-            <p style={{ fontSize: '0.875rem', margin: '0.25rem 0' }}>
-              <strong>{post.display_name}</strong>
-              {post.caption ? ` — ${post.caption}` : ''}
-            </p>
-            {(isHost || myPostIds.includes(post.id)) && (
-              <button onClick={() => handleDelete(post.id)} style={{ fontSize: '0.75rem' }}>
-                Delete
+        {posts.map((post) =>
+          editingPostId === post.id ? (
+            <div key={post.id} style={{ border: '1px solid #ddd', borderRadius: '0.5rem', padding: '0.5rem' }}>
+              <input
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                style={{ display: 'block', marginBottom: '0.5rem', width: '100%', padding: '0.25rem' }}
+              />
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setEditFile(e.target.files?.[0] ?? null)}
+                style={{ display: 'block', marginBottom: '0.5rem', width: '100%' }}
+              />
+              <input
+                value={editCaption}
+                onChange={(e) => setEditCaption(e.target.value)}
+                placeholder="Caption (optional)"
+                style={{ display: 'block', marginBottom: '0.5rem', width: '100%', padding: '0.25rem' }}
+              />
+              <button onClick={() => handleSaveEdit(post)} disabled={editSubmitting} style={{ fontSize: '0.75rem', marginRight: '0.5rem' }}>
+                {editSubmitting ? 'Saving...' : 'Save'}
               </button>
-            )}
-          </div>
-        ))}
+              <button onClick={handleCancelEdit} disabled={editSubmitting} style={{ fontSize: '0.75rem' }}>
+                Cancel
+              </button>
+              {editMessage && <p style={{ fontSize: '0.75rem' }}>{editMessage}</p>}
+            </div>
+          ) : (
+            <div key={post.id}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={post.image_url}
+                alt={`${post.display_name}'s outfit`}
+                style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: '0.5rem' }}
+              />
+              <p style={{ fontSize: '0.875rem', margin: '0.25rem 0' }}>
+                <strong>{post.display_name}</strong>
+                {post.caption ? ` — ${post.caption}` : ''}
+              </p>
+              {myPostIds.includes(post.id) && (
+                <button onClick={() => handleStartEdit(post)} style={{ fontSize: '0.75rem', marginRight: '0.5rem' }}>
+                  Edit
+                </button>
+              )}
+              {(isHost || myPostIds.includes(post.id)) && (
+                <button onClick={() => handleDelete(post.id)} style={{ fontSize: '0.75rem' }}>
+                  Delete
+                </button>
+              )}
+            </div>
+          )
+        )}
       </div>
     </div>
   )
