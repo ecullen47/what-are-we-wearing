@@ -46,6 +46,7 @@ export default function EventPage() {
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [isHost, setIsHost] = useState(false)
+  const [isAttending, setIsAttending] = useState(false)
   const [myPostIds, setMyPostIds] = useState<string[]>([])
 
   const loadPosts = useCallback(async () => {
@@ -79,6 +80,14 @@ export default function EventPage() {
           .eq('host_id', userData.user.id)
           .maybeSingle()
         setIsHost(!!ownEvent)
+
+        const { data: attendance } = await supabase
+          .from('event_attendance')
+          .select('id')
+          .eq('event_id', eventData.id)
+          .eq('user_id', userData.user.id)
+          .maybeSingle()
+        setIsAttending(!!attendance)
       }
 
       setLoading(false)
@@ -122,7 +131,7 @@ export default function EventPage() {
 
   return (
     <div style={{ padding: '2rem', maxWidth: '700px', margin: '0 auto' }}>
-      {isHost && <Link href="/dashboard">&larr; Back to Dashboard</Link>}
+      {(isHost || isAttending) && <Link href="/dashboard">&larr; Back to Dashboard</Link>}
       <h1>{event.name}</h1>
 
       {event.inspo_image_urls.length > 0 && (
