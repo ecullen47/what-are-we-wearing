@@ -24,7 +24,7 @@ export default function LoginPage() {
     if (error) {
       setMessage(`Error: ${error.message}`)
     } else {
-      router.push('/create-event')
+      router.push('/dashboard')
     }
   }
 

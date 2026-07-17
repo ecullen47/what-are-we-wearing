@@ -69,6 +69,12 @@ export default function EventPage() {
     load()
   }, [code, loadPosts])
 
+  useEffect(() => {
+    if (event) {
+      document.title = `${event.name} — What Are We Wearing`
+    }
+  }, [event])
+
   if (loading) {
     return <div style={{ padding: '2rem' }}>Loading...</div>
   }
@@ -79,6 +85,8 @@ export default function EventPage() {
 
   return (
     <div style={{ padding: '2rem', maxWidth: '700px', margin: '0 auto' }}>
+      <h1>{event.name}</h1>
+
       {event.inspo_image_urls.length > 0 && (
         <div
           style={{
@@ -110,7 +118,6 @@ export default function EventPage() {
         </div>
       )}
 
-      <h1>{event.name}</h1>
       <p>
         {event.event_date} &middot; {event.location}
       </p>

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 function generateInviteCode() {
   return Math.random().toString(36).substring(2, 8).toUpperCase()
@@ -52,6 +53,7 @@ export default function CreateEventPage() {
 
   return (
     <div style={{ padding: '2rem', maxWidth: '500px' }}>
+      <Link href="/dashboard">&larr; Back to Dashboard</Link>
       <h1>Create an Event</h1>
 
       <label>Event Name</label>
