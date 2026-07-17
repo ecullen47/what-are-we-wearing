@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import OutfitPostForm from '@/components/OutfitPostForm'
+import { getGuestToken, getMyPostIds, removeMyPostId } from '@/lib/guestIdentity'
 
 type EventData = {
   id: string
@@ -43,6 +44,8 @@ export default function EventPage() {
   const [posts, setPosts] = useState<OutfitPost[]>([])
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
+  const [isHost, setIsHost] = useState(false)
+  const [myPostIds, setMyPostIds] = useState<string[]>([])
 
   const loadPosts = useCallback(async () => {
     const { data } = await supabase.rpc('get_outfit_posts_by_code', { p_code: code })
@@ -61,13 +64,46 @@ export default function EventPage() {
         return
       }
 
-      setEvent(data as EventData)
+      const eventData = data as EventData
+      setEvent(eventData)
+      setMyPostIds(getMyPostIds(eventData.id))
       await loadPosts()
+
+      const { data: userData } = await supabase.auth.getUser()
+      if (userData?.user) {
+        const { data: ownEvent } = await supabase
+          .from('events')
+          .select('id')
+          .eq('id', eventData.id)
+          .eq('host_id', userData.user.id)
+          .maybeSingle()
+        setIsHost(!!ownEvent)
+      }
+
       setLoading(false)
     }
 
     load()
   }, [code, loadPosts])
+
+  const handleDelete = async (postId: string) => {
+    if (!event) return
+    if (!window.confirm('Delete this outfit post?')) return
+
+    if (isHost) {
+      await supabase.from('outfit_posts').delete().eq('id', postId)
+    } else {
+      await supabase.rpc('delete_own_outfit_post', {
+        p_code: code,
+        p_post_id: postId,
+        p_guest_token: getGuestToken(),
+      })
+      removeMyPostId(event.id, postId)
+      setMyPostIds(getMyPostIds(event.id))
+    }
+
+    await loadPosts()
+  }
 
   useEffect(() => {
     if (event) {
@@ -147,6 +183,11 @@ export default function EventPage() {
               <strong>{post.display_name}</strong>
               {post.caption ? ` — ${post.caption}` : ''}
             </p>
+            {(isHost || myPostIds.includes(post.id)) && (
+              <button onClick={() => handleDelete(post.id)} style={{ fontSize: '0.75rem' }}>
+                Delete
+              </button>
+            )}
           </div>
         ))}
       </div>
