@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { uploadEventImage } from '@/lib/uploadImage'
-import { getGuestName, setGuestName } from '@/lib/guestIdentity'
+import { getGuestName, setGuestName, getGuestToken, addMyPostId } from '@/lib/guestIdentity'
 
 type Props = {
   eventId: string
@@ -36,17 +36,22 @@ export default function OutfitPostForm({ eventId, inviteCode, onPosted }: Props)
 
       const imageUrl = await uploadEventImage('outfit-posts', eventId, file)
 
-      const { error } = await supabase.rpc('insert_outfit_post', {
+      const { data: postId, error } = await supabase.rpc('insert_outfit_post', {
         p_code: inviteCode,
         p_display_name: name.trim(),
         p_image_url: imageUrl,
         p_caption: caption.trim() || null,
+        p_guest_token: getGuestToken(),
       })
 
       if (error) {
         setMessage(`Error: ${error.message}`)
         setSubmitting(false)
         return
+      }
+
+      if (postId) {
+        addMyPostId(eventId, postId)
       }
 
       setFile(null)
