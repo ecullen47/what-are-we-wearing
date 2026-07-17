@@ -17,6 +17,7 @@ type EventSummary = {
 export default function DashboardPage() {
   const router = useRouter()
   const [events, setEvents] = useState<EventSummary[] | null>(null)
+  const [eventCode, setEventCode] = useState('')
 
   useEffect(() => {
     const load = async () => {
@@ -40,6 +41,13 @@ export default function DashboardPage() {
     load()
   }, [router])
 
+  const handleGoToEvent = () => {
+    const code = eventCode.trim().toUpperCase()
+    if (code) {
+      router.push(`/event/${code}`)
+    }
+  }
+
   if (events === null) {
     return <div style={{ padding: '2rem' }}>Loading...</div>
   }
@@ -49,6 +57,19 @@ export default function DashboardPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1>Your Events</h1>
         <Link href="/create-event">+ Create New Event</Link>
+      </div>
+
+      <div style={{ display: 'flex', gap: '0.5rem', margin: '1rem 0' }}>
+        <input
+          value={eventCode}
+          onChange={(e) => setEventCode(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') handleGoToEvent()
+          }}
+          placeholder="Have an invite code? Enter it here"
+          style={{ flex: 1, padding: '0.5rem' }}
+        />
+        <button onClick={handleGoToEvent}>Go</button>
       </div>
 
       {events.length === 0 ? (
