@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #faf3ec;
+  --foreground: #2b2420;
 }
 
 @theme inline {
@@ -10,17 +10,35 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
+  --font-display: var(--font-serif);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-cream: #faf3ec;
+  --color-cream-dark: #f1e6d8;
+  --color-stone: #2b2420;
+  --color-stone-muted: #7a6f63;
+  --color-stone-line: #e4d8c9;
+  --color-terracotta: #bc5b3a;
+  --color-terracotta-dark: #9e4b2e;
+  --color-terracotta-light: #f1ded3;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+/* body is a column flex container so page content can grow/center
+   vertically; without this, its child hits the flex min-width:auto
+   floor and refuses to shrink below its content's natural width,
+   causing horizontal overflow on narrow viewports. */
+body > * {
+  min-width: 0;
+  width: 100%;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display), Georgia, serif;
 }

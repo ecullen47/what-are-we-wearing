@@ -32,12 +32,15 @@ type OutfitPost = {
   created_at: string
 }
 
+const inputClass =
+  'block w-full rounded-md border border-stone-line bg-white px-3 py-2 text-sm text-stone placeholder:text-stone-muted focus:border-terracotta focus:outline-none'
+
 function ColorSection({ title, colors }: { title: string; colors: string[] }) {
   if (colors.length === 0) return null
   return (
-    <div style={{ marginBottom: '0.5rem' }}>
-      <strong>{title}:</strong> {colors.join(', ')}
-    </div>
+    <p className="text-sm text-stone">
+      <span className="font-medium">{title}:</span> <span className="text-stone-muted">{colors.join(', ')}</span>
+    </p>
   )
 }
 
@@ -189,44 +192,46 @@ export default function EventPage() {
   }
 
   if (loading) {
-    return <div style={{ padding: '2rem' }}>Loading...</div>
+    return <div className="px-6 py-16 text-center text-stone-muted">Loading...</div>
   }
 
   if (notFound || !event) {
-    return <div style={{ padding: '2rem' }}>Event not found.</div>
+    return <div className="px-6 py-16 text-center text-stone-muted">Event not found.</div>
   }
 
   return (
-    <div style={{ padding: '2rem', maxWidth: '700px', margin: '0 auto' }}>
-      {(isHost || isAttending) && <Link href="/dashboard">&larr; Back to Dashboard</Link>}
-      {event.host_display_name && <p style={{ margin: 0, color: '#666' }}>Hosted by {event.host_display_name}</p>}
-      <h1>{event.name}</h1>
+    <div className="mx-auto max-w-2xl px-6 py-12">
+      {(isHost || isAttending) && (
+        <Link href="/dashboard" className="text-sm text-terracotta hover:underline">
+          &larr; Back to Dashboard
+        </Link>
+      )}
+      {event.host_display_name && (
+        <p className="mt-2 text-sm text-stone-muted">Hosted by {event.host_display_name}</p>
+      )}
+      <h1 className="mt-1 font-display text-4xl text-stone">{event.name}</h1>
 
       {event.show_invite_code_to_guests && (
-        <p style={{ fontSize: '0.875rem' }}>
-          Invite code: <strong>{event.invite_code}</strong>{' '}
-          <button onClick={handleCopyLink} style={{ fontSize: '0.75rem' }}>
+        <p className="mt-2 text-sm text-stone-muted">
+          Invite code: <strong className="text-stone">{event.invite_code}</strong>{' '}
+          <button
+            onClick={handleCopyLink}
+            className="ml-1 rounded-full border border-terracotta px-3 py-1 text-xs font-medium text-terracotta transition-colors hover:bg-terracotta-light"
+          >
             {copied ? 'Copied!' : 'Copy link to share'}
           </button>
         </p>
       )}
 
       {event.inspo_image_urls.length > 0 && (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
-            gap: '0.5rem',
-            marginBottom: '1.5rem',
-          }}
-        >
+        <div className="mt-6 grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2">
           {event.inspo_image_urls.map((url) => (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               key={url}
               src={url}
               alt="Event inspiration"
-              style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: '0.5rem' }}
+              className="aspect-square w-full rounded-lg object-cover"
             />
           ))}
         </div>
@@ -235,57 +240,61 @@ export default function EventPage() {
       {(event.required_colors.length > 0 ||
         event.suggested_colors.length > 0 ||
         event.off_limit_colors.length > 0) && (
-        <div style={{ marginBottom: '1.5rem' }}>
+        <div className="mt-6 space-y-1 rounded-lg border border-stone-line bg-cream-dark/40 p-4">
           <ColorSection title="Required Colors" colors={event.required_colors} />
           <ColorSection title="Suggested Colors" colors={event.suggested_colors} />
           <ColorSection title="Off-Limit Colors" colors={event.off_limit_colors} />
         </div>
       )}
 
-      <p>
+      <p className="mt-6 text-stone">
         {event.event_date} &middot; {event.location}
       </p>
-      {event.dress_code_text && <p>Dress code: {event.dress_code_text}</p>}
+      {event.dress_code_text && <p className="mt-1 text-stone-muted">Dress code: {event.dress_code_text}</p>}
 
-      <div style={{ margin: '1.5rem 0' }}>
+      <div className="mt-8">
         <OutfitPostForm eventId={event.id} inviteCode={event.invite_code} onPosted={loadPosts} />
       </div>
 
-      <h2>Outfits</h2>
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
-          gap: '0.5rem',
-        }}
-      >
+      <h2 className="mt-10 font-display text-2xl text-stone">Outfits</h2>
+      <div className="mt-4 grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-4">
         {posts.map((post) =>
           editingPostId === post.id ? (
-            <div key={post.id} style={{ border: '1px solid #ddd', borderRadius: '0.5rem', padding: '0.5rem' }}>
+            <div key={post.id} className="rounded-lg border border-terracotta bg-white p-3">
               <input
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
-                style={{ display: 'block', marginBottom: '0.5rem', width: '100%', padding: '0.25rem' }}
+                className={`${inputClass} mb-2`}
               />
               <input
                 type="file"
                 accept="image/*"
                 onChange={(e) => setEditFile(e.target.files?.[0] ?? null)}
-                style={{ display: 'block', marginBottom: '0.5rem', width: '100%' }}
+                className="mb-2 block w-full text-xs text-stone-muted file:mr-2 file:rounded-full file:border-0 file:bg-terracotta-light file:px-3 file:py-1 file:text-xs file:font-medium file:text-terracotta-dark"
               />
               <input
                 value={editCaption}
                 onChange={(e) => setEditCaption(e.target.value)}
                 placeholder="Caption (optional)"
-                style={{ display: 'block', marginBottom: '0.5rem', width: '100%', padding: '0.25rem' }}
+                className={`${inputClass} mb-2`}
               />
-              <button onClick={() => handleSaveEdit(post)} disabled={editSubmitting} style={{ fontSize: '0.75rem', marginRight: '0.5rem' }}>
-                {editSubmitting ? 'Saving...' : 'Save'}
-              </button>
-              <button onClick={handleCancelEdit} disabled={editSubmitting} style={{ fontSize: '0.75rem' }}>
-                Cancel
-              </button>
-              {editMessage && <p style={{ fontSize: '0.75rem' }}>{editMessage}</p>}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleSaveEdit(post)}
+                  disabled={editSubmitting}
+                  className="rounded-full bg-terracotta px-3 py-1 text-xs font-medium text-cream hover:bg-terracotta-dark disabled:opacity-50"
+                >
+                  {editSubmitting ? 'Saving...' : 'Save'}
+                </button>
+                <button
+                  onClick={handleCancelEdit}
+                  disabled={editSubmitting}
+                  className="rounded-full border border-stone-line px-3 py-1 text-xs font-medium text-stone-muted hover:border-terracotta hover:text-terracotta"
+                >
+                  Cancel
+                </button>
+              </div>
+              {editMessage && <p className="mt-2 text-xs text-stone-muted">{editMessage}</p>}
             </div>
           ) : (
             <div key={post.id}>
@@ -293,22 +302,30 @@ export default function EventPage() {
               <img
                 src={post.image_url}
                 alt={`${post.display_name}'s outfit`}
-                style={{ width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: '0.5rem' }}
+                className="aspect-square w-full rounded-lg object-cover"
               />
-              <p style={{ fontSize: '0.875rem', margin: '0.25rem 0' }}>
+              <p className="mt-1.5 text-sm text-stone">
                 <strong>{post.display_name}</strong>
-                {post.caption ? ` — ${post.caption}` : ''}
+                {post.caption ? <span className="text-stone-muted"> — {post.caption}</span> : ''}
               </p>
-              {myPostIds.includes(post.id) && (
-                <button onClick={() => handleStartEdit(post)} style={{ fontSize: '0.75rem', marginRight: '0.5rem' }}>
-                  Edit
-                </button>
-              )}
-              {(isHost || myPostIds.includes(post.id)) && (
-                <button onClick={() => handleDelete(post.id)} style={{ fontSize: '0.75rem' }}>
-                  Delete
-                </button>
-              )}
+              <div className="mt-1 flex gap-3">
+                {myPostIds.includes(post.id) && (
+                  <button
+                    onClick={() => handleStartEdit(post)}
+                    className="text-xs text-terracotta hover:underline"
+                  >
+                    Edit
+                  </button>
+                )}
+                {(isHost || myPostIds.includes(post.id)) && (
+                  <button
+                    onClick={() => handleDelete(post.id)}
+                    className="text-xs text-stone-muted hover:text-terracotta hover:underline"
+                  >
+                    Delete
+                  </button>
+                )}
+              </div>
             </div>
           )
         )}

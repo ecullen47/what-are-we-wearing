@@ -18,6 +18,10 @@ function parseColorList(input: string): string[] {
     .filter((c) => c.length > 0)
 }
 
+const inputClass =
+  'block w-full rounded-md border border-stone-line bg-white px-4 py-2 text-stone placeholder:text-stone-muted focus:border-terracotta focus:outline-none'
+const labelClass = 'mb-1 block text-sm font-medium text-stone'
+
 export default function EventSetupPage() {
   const { code } = useParams<{ code: string }>()
   const router = useRouter()
@@ -98,63 +102,86 @@ export default function EventSetupPage() {
   }
 
   if (loading) {
-    return <div style={{ padding: '2rem' }}>Loading...</div>
+    return <div className="px-6 py-16 text-center text-stone-muted">Loading...</div>
   }
 
   return (
-    <div style={{ padding: '2rem', maxWidth: '500px' }}>
-      <h1>Add Inspo &amp; Colors</h1>
-      <p>Help your guests know what to wear. You can skip this and add it later.</p>
+    <div className="mx-auto max-w-lg px-6 py-12">
+      <h1 className="font-display text-3xl text-stone">Add Inspo &amp; Colors</h1>
+      <p className="mt-2 text-stone-muted">
+        Help your guests know what to wear. You can skip this and add it later.
+      </p>
 
-      <label>Inspo Images</label>
-      <input
-        type="file"
-        accept="image/*"
-        multiple
-        onChange={(e) => setFiles(e.target.files)}
-        style={{ display: 'block', marginBottom: '1rem', width: '100%' }}
-      />
+      <div className="mt-6 space-y-4">
+        <div>
+          <label className={labelClass}>Inspo Images</label>
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={(e) => setFiles(e.target.files)}
+            className="block w-full text-sm text-stone-muted file:mr-3 file:rounded-full file:border-0 file:bg-terracotta-light file:px-4 file:py-2 file:text-sm file:font-medium file:text-terracotta-dark"
+          />
+        </div>
 
-      <label>Required Colors (comma separated)</label>
-      <input
-        value={requiredColors}
-        onChange={(e) => setRequiredColors(e.target.value)}
-        placeholder="e.g. navy, gold"
-        style={{ display: 'block', marginBottom: '1rem', width: '100%', padding: '0.5rem' }}
-      />
+        <div>
+          <label className={labelClass}>Required Colors (comma separated)</label>
+          <input
+            value={requiredColors}
+            onChange={(e) => setRequiredColors(e.target.value)}
+            placeholder="e.g. navy, gold"
+            className={inputClass}
+          />
+        </div>
 
-      <label>Suggested Colors (comma separated)</label>
-      <input
-        value={suggestedColors}
-        onChange={(e) => setSuggestedColors(e.target.value)}
-        placeholder="e.g. sage green, cream"
-        style={{ display: 'block', marginBottom: '1rem', width: '100%', padding: '0.5rem' }}
-      />
+        <div>
+          <label className={labelClass}>Suggested Colors (comma separated)</label>
+          <input
+            value={suggestedColors}
+            onChange={(e) => setSuggestedColors(e.target.value)}
+            placeholder="e.g. sage green, cream"
+            className={inputClass}
+          />
+        </div>
 
-      <label>Off-Limit Colors (comma separated)</label>
-      <input
-        value={offLimitColors}
-        onChange={(e) => setOffLimitColors(e.target.value)}
-        placeholder="e.g. dusty rose (bridesmaid color)"
-        style={{ display: 'block', marginBottom: '1rem', width: '100%', padding: '0.5rem' }}
-      />
+        <div>
+          <label className={labelClass}>Off-Limit Colors (comma separated)</label>
+          <input
+            value={offLimitColors}
+            onChange={(e) => setOffLimitColors(e.target.value)}
+            placeholder="e.g. dusty rose (bridesmaid color)"
+            className={inputClass}
+          />
+        </div>
 
-      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-        <input
-          type="checkbox"
-          checked={showInviteCode}
-          onChange={(e) => setShowInviteCode(e.target.checked)}
-        />
-        Show invite code to guests on the event page
-      </label>
+        <label className="flex items-center gap-2 text-sm text-stone">
+          <input
+            type="checkbox"
+            checked={showInviteCode}
+            onChange={(e) => setShowInviteCode(e.target.checked)}
+            className="h-4 w-4 accent-terracotta"
+          />
+          Show invite code to guests on the event page
+        </label>
+      </div>
 
-      <button onClick={handleSubmit} disabled={submitting} style={{ marginRight: '1rem' }}>
-        {submitting ? 'Saving...' : 'Save & Continue'}
-      </button>
-      <button onClick={handleSkip} disabled={submitting}>
-        I don&apos;t want to add event info
-      </button>
-      <p>{message}</p>
+      <div className="mt-6 flex flex-wrap items-center gap-3">
+        <button
+          onClick={handleSubmit}
+          disabled={submitting}
+          className="rounded-full bg-terracotta px-6 py-2.5 font-medium text-cream transition-colors hover:bg-terracotta-dark disabled:opacity-50"
+        >
+          {submitting ? 'Saving...' : 'Save & Continue'}
+        </button>
+        <button
+          onClick={handleSkip}
+          disabled={submitting}
+          className="text-sm text-stone-muted underline decoration-stone-line underline-offset-4 hover:text-terracotta"
+        >
+          I don&apos;t want to add event info
+        </button>
+      </div>
+      {message && <p className="mt-3 text-sm text-stone-muted">{message}</p>}
     </div>
   )
 }
