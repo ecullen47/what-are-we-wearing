@@ -149,6 +149,9 @@ export default function DashboardPage() {
               <p style={{ margin: '0.25rem 0' }}>
                 {event.event_date} &middot; {event.location}
               </p>
+              <p style={{ margin: '0.25rem 0', fontSize: '0.875rem' }}>
+                Invite code: <strong>{event.invite_code}</strong>
+              </p>
               <p style={{ margin: 0, fontSize: '0.875rem' }}>
                 {event.outfit_posts?.[0]?.count ?? 0} outfit
                 {event.outfit_posts?.[0]?.count === 1 ? '' : 's'} posted
