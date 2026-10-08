@@ -8,6 +8,9 @@ import OutfitPostForm from '@/components/OutfitPostForm'
 import { getGuestToken, getMyPostIds, removeMyPostId } from '@/lib/guestIdentity'
 import { removeEventImages, uploadEventImage } from '@/lib/uploadImage'
 import { formatEventDate } from '@/lib/formatDate'
+import ColorChip, { SwatchDot } from '@/components/ColorChip'
+import SwatchPicker from '@/components/SwatchPicker'
+import ColorWarnings from '@/components/ColorWarnings'
 
 type EventData = {
   id: string
@@ -23,6 +26,7 @@ type EventData = {
   required_colors: string[]
   suggested_colors: string[]
   off_limit_colors: string[]
+  color_notes: string | null
 }
 
 type OutfitPost = {
@@ -30,7 +34,19 @@ type OutfitPost = {
   display_name: string
   image_url: string
   caption: string | null
+  colors: string[] | null
   created_at: string
+}
+
+// How many posts use each color id, optionally ignoring one post (the one
+// being edited, so it doesn't count against itself).
+function countColors(posts: OutfitPost[], excludeId?: string): Map<string, number> {
+  const counts = new Map<string, number>()
+  for (const p of posts) {
+    if (p.id === excludeId) continue
+    for (const c of p.colors ?? []) counts.set(c, (counts.get(c) ?? 0) + 1)
+  }
+  return counts
 }
 
 const inputClass =
@@ -39,9 +55,12 @@ const inputClass =
 function ColorSection({ title, colors }: { title: string; colors: string[] }) {
   if (colors.length === 0) return null
   return (
-    <p className="text-sm text-stone">
-      <span className="font-medium">{title}:</span> <span className="text-stone-muted">{colors.join(', ')}</span>
-    </p>
+    <div className="flex flex-wrap items-center gap-1.5 text-sm text-stone">
+      <span className="font-medium">{title}:</span>
+      {colors.map((c) => (
+        <ColorChip key={c} value={c} />
+      ))}
+    </div>
   )
 }
 
@@ -61,6 +80,7 @@ export default function EventPage() {
   const [editName, setEditName] = useState('')
   const [editCaption, setEditCaption] = useState('')
   const [editFile, setEditFile] = useState<File | null>(null)
+  const [editColors, setEditColors] = useState<string[]>([])
   const [editSubmitting, setEditSubmitting] = useState(false)
   const [editMessage, setEditMessage] = useState('')
   const [copied, setCopied] = useState(false)
@@ -151,6 +171,7 @@ export default function EventPage() {
     setEditingPostId(post.id)
     setEditName(post.display_name)
     setEditCaption(post.caption ?? '')
+    setEditColors(post.colors ?? [])
     setEditFile(null)
     setEditMessage('')
   }
@@ -181,6 +202,7 @@ export default function EventPage() {
         p_display_name: editName.trim(),
         p_image_url: imageUrl,
         p_caption: editCaption.trim() || null,
+        p_colors: editColors,
       })
 
       if (error) {
@@ -214,6 +236,8 @@ export default function EventPage() {
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
+
+  const colorCounts = countColors(posts)
 
   if (loading) {
     return <div className="px-6 py-16 text-center text-stone-muted">Loading...</div>
@@ -295,11 +319,13 @@ export default function EventPage() {
 
       {(event.required_colors.length > 0 ||
         event.suggested_colors.length > 0 ||
-        event.off_limit_colors.length > 0) && (
-        <div className="mt-6 space-y-1 rounded-lg border border-stone-line bg-cream-dark/40 p-4">
-          <ColorSection title="Required Colors" colors={event.required_colors} />
-          <ColorSection title="Suggested Colors" colors={event.suggested_colors} />
-          <ColorSection title="Off-Limit Colors" colors={event.off_limit_colors} />
+        event.off_limit_colors.length > 0 ||
+        event.color_notes) && (
+        <div className="mt-6 space-y-2 rounded-lg border border-stone-line bg-cream-dark/40 p-4">
+          <ColorSection title="Required" colors={event.required_colors} />
+          <ColorSection title="Suggested" colors={event.suggested_colors} />
+          <ColorSection title="Off-limit" colors={event.off_limit_colors} />
+          {event.color_notes && <p className="text-sm text-stone-muted">{event.color_notes}</p>}
         </div>
       )}
 
@@ -312,6 +338,9 @@ export default function EventPage() {
         <OutfitPostForm
           eventId={event.id}
           inviteCode={event.invite_code}
+          requiredColors={event.required_colors}
+          offLimitColors={event.off_limit_colors}
+          takenCounts={colorCounts}
           onPosted={() => {
             // The form just recorded the new post as ours; re-read so its
             // Edit/Delete buttons show without a reload.
@@ -322,10 +351,22 @@ export default function EventPage() {
       </div>
 
       <h2 className="mt-10 font-display text-2xl text-stone">Outfits</h2>
+      {colorCounts.size > 0 && (
+        <div className="mt-3">
+          <p className="mb-1.5 text-xs font-medium tracking-wide text-stone-muted uppercase">Colors so far</p>
+          <div className="flex flex-wrap gap-1.5">
+            {[...colorCounts.entries()]
+              .sort((a, b) => b[1] - a[1])
+              .map(([id, n]) => (
+                <ColorChip key={id} value={id} count={n} />
+              ))}
+          </div>
+        </div>
+      )}
       <div className="mt-4 grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-4">
         {posts.map((post) =>
           editingPostId === post.id ? (
-            <div key={post.id} className="rounded-lg border border-terracotta bg-white p-3">
+            <div key={post.id} className="col-span-full rounded-lg border border-terracotta bg-white p-3">
               <input
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
@@ -343,6 +384,15 @@ export default function EventPage() {
                 placeholder="Caption (optional)"
                 className={`${inputClass} mb-2`}
               />
+              <div className="mb-3">
+                <SwatchPicker value={editColors} onChange={setEditColors} />
+                <ColorWarnings
+                  selected={editColors}
+                  required={event.required_colors}
+                  offLimit={event.off_limit_colors}
+                  takenCounts={countColors(posts, post.id)}
+                />
+              </div>
               <div className="flex gap-2">
                 <button
                   onClick={() => handleSaveEdit(post)}
@@ -373,6 +423,13 @@ export default function EventPage() {
                 <strong>{post.display_name}</strong>
                 {post.caption ? <span className="text-stone-muted"> — {post.caption}</span> : ''}
               </p>
+              {(post.colors ?? []).length > 0 && (
+                <div className="mt-1 flex gap-1">
+                  {(post.colors ?? []).map((c) => (
+                    <SwatchDot key={c} value={c} />
+                  ))}
+                </div>
+              )}
               <div className="mt-1 flex gap-3">
                 {myPostIds.includes(post.id) && (
                   <button

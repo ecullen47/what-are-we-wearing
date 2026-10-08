@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { listEventFiles, removeEventImages, uploadEventImage } from '@/lib/uploadImage'
+import { toPaletteId } from '@/lib/palette'
+import ColorRulesPicker, { type ColorRules } from '@/components/ColorRulesPicker'
 
 type EventRow = {
   id: string
@@ -20,19 +22,19 @@ type EventRow = {
   required_colors: string[] | null
   suggested_colors: string[] | null
   off_limit_colors: string[] | null
+  color_notes: string | null
   show_invite_code_to_guests: boolean
+}
+
+// Older events stored typed color names; map any that match the palette
+// (e.g. "Purple") to palette ids so they show as selectable swatches.
+function normalizeColors(list: string[] | null): string[] {
+  return [...new Set((list ?? []).map(toPaletteId))]
 }
 
 type FieldErrors = Partial<Record<'hostDisplayName' | 'name' | 'eventDate' | 'location', string>>
 
 const INSPO_BUCKET = 'event-inspo'
-
-function parseColorList(input: string): string[] {
-  return input
-    .split(',')
-    .map((c) => c.trim())
-    .filter((c) => c.length > 0)
-}
 
 function todayLocalISO() {
   const now = new Date()
@@ -63,9 +65,8 @@ export default function EditEventPage() {
   const [dressCode, setDressCode] = useState('')
   const [keptInspo, setKeptInspo] = useState<string[]>([])
   const [newFiles, setNewFiles] = useState<File[]>([])
-  const [requiredColors, setRequiredColors] = useState('')
-  const [suggestedColors, setSuggestedColors] = useState('')
-  const [offLimitColors, setOffLimitColors] = useState('')
+  const [colorRules, setColorRules] = useState<ColorRules>({ required: [], suggested: [], offLimit: [] })
+  const [colorNotes, setColorNotes] = useState('')
   const [showInviteCode, setShowInviteCode] = useState(true)
 
   const [errors, setErrors] = useState<FieldErrors>({})
@@ -81,7 +82,7 @@ export default function EditEventPage() {
       const { data, error } = await supabase
         .from('events')
         .select(
-          'id, host_id, invite_code, host_display_name, name, event_date, location, event_type, dress_code_text, inspo_image_urls, required_colors, suggested_colors, off_limit_colors, show_invite_code_to_guests'
+          'id, host_id, invite_code, host_display_name, name, event_date, location, event_type, dress_code_text, inspo_image_urls, required_colors, suggested_colors, off_limit_colors, color_notes, show_invite_code_to_guests'
         )
         .eq('invite_code', code)
         .maybeSingle()
@@ -100,9 +101,12 @@ export default function EditEventPage() {
       setEventType(row.event_type || 'other')
       setDressCode(row.dress_code_text ?? '')
       setKeptInspo(row.inspo_image_urls ?? [])
-      setRequiredColors((row.required_colors ?? []).join(', '))
-      setSuggestedColors((row.suggested_colors ?? []).join(', '))
-      setOffLimitColors((row.off_limit_colors ?? []).join(', '))
+      setColorRules({
+        required: normalizeColors(row.required_colors),
+        suggested: normalizeColors(row.suggested_colors),
+        offLimit: normalizeColors(row.off_limit_colors),
+      })
+      setColorNotes(row.color_notes ?? '')
       setShowInviteCode(row.show_invite_code_to_guests)
       setLoading(false)
     }
@@ -156,9 +160,10 @@ export default function EditEventPage() {
           event_type: eventType,
           dress_code_text: dressCode.trim(),
           inspo_image_urls: [...keptInspo, ...uploaded],
-          required_colors: parseColorList(requiredColors),
-          suggested_colors: parseColorList(suggestedColors),
-          off_limit_colors: parseColorList(offLimitColors),
+          required_colors: colorRules.required,
+          suggested_colors: colorRules.suggested,
+          off_limit_colors: colorRules.offLimit,
+          color_notes: colorNotes.trim() || null,
           show_invite_code_to_guests: showInviteCode,
         })
         .eq('id', event.id)
@@ -380,42 +385,20 @@ export default function EditEventPage() {
 
         <section className="mt-10 space-y-4">
           <h2 className={sectionTitle}>Colors</h2>
+          <p className="text-xs text-stone-muted">
+            Pick a category, then tap colors. Guests get a heads-up if they tag an off-limit color.
+          </p>
+          <ColorRulesPicker value={colorRules} onChange={setColorRules} />
 
           <div>
-            <label htmlFor="required" className={labelClass}>
-              Required Colors (comma separated)
+            <label htmlFor="color-notes" className={labelClass}>
+              Color notes <span className="font-normal text-stone-muted">(optional)</span>
             </label>
             <input
-              id="required"
-              value={requiredColors}
-              onChange={(e) => setRequiredColors(e.target.value)}
-              placeholder="e.g. navy, gold"
-              className={plain}
-            />
-          </div>
-
-          <div>
-            <label htmlFor="suggested" className={labelClass}>
-              Suggested Colors (comma separated)
-            </label>
-            <input
-              id="suggested"
-              value={suggestedColors}
-              onChange={(e) => setSuggestedColors(e.target.value)}
-              placeholder="e.g. sage green, cream"
-              className={plain}
-            />
-          </div>
-
-          <div>
-            <label htmlFor="offlimit" className={labelClass}>
-              Off-Limit Colors (comma separated)
-            </label>
-            <input
-              id="offlimit"
-              value={offLimitColors}
-              onChange={(e) => setOffLimitColors(e.target.value)}
-              placeholder="e.g. dusty rose (bridesmaid color)"
+              id="color-notes"
+              value={colorNotes}
+              onChange={(e) => setColorNotes(e.target.value)}
+              placeholder='e.g. "Bridesmaids are in dusty rose" or "No neon"'
               className={plain}
             />
           </div>
