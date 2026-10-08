@@ -7,7 +7,6 @@ import { supabase } from '@/lib/supabase'
 import { listEventFiles, removeEventImages, uploadEventImage } from '@/lib/uploadImage'
 import { toPaletteId } from '@/lib/palette'
 import ColorRulesPicker, { type ColorRules } from '@/components/ColorRulesPicker'
-import ShareGalleryToggle from '@/components/ShareGalleryToggle'
 
 type EventRow = {
   id: string
@@ -25,7 +24,6 @@ type EventRow = {
   off_limit_colors: string[] | null
   color_notes: string | null
   show_invite_code_to_guests: boolean
-  share_publicly: boolean
 }
 
 // Older events stored typed color names; map any that match the palette
@@ -70,7 +68,6 @@ export default function EditEventPage() {
   const [colorRules, setColorRules] = useState<ColorRules>({ required: [], suggested: [], offLimit: [] })
   const [colorNotes, setColorNotes] = useState('')
   const [showInviteCode, setShowInviteCode] = useState(true)
-  const [sharePublicly, setSharePublicly] = useState(false)
 
   const [errors, setErrors] = useState<FieldErrors>({})
   const [message, setMessage] = useState('')
@@ -85,7 +82,7 @@ export default function EditEventPage() {
       const { data, error } = await supabase
         .from('events')
         .select(
-          'id, host_id, invite_code, host_display_name, name, event_date, location, event_type, dress_code_text, inspo_image_urls, required_colors, suggested_colors, off_limit_colors, color_notes, show_invite_code_to_guests, share_publicly'
+          'id, host_id, invite_code, host_display_name, name, event_date, location, event_type, dress_code_text, inspo_image_urls, required_colors, suggested_colors, off_limit_colors, color_notes, show_invite_code_to_guests'
         )
         .eq('invite_code', code)
         .maybeSingle()
@@ -111,7 +108,6 @@ export default function EditEventPage() {
       })
       setColorNotes(row.color_notes ?? '')
       setShowInviteCode(row.show_invite_code_to_guests)
-      setSharePublicly(row.share_publicly)
       setLoading(false)
     }
 
@@ -169,7 +165,6 @@ export default function EditEventPage() {
           off_limit_colors: colorRules.offLimit,
           color_notes: colorNotes.trim() || null,
           show_invite_code_to_guests: showInviteCode,
-          share_publicly: sharePublicly,
         })
         .eq('id', event.id)
 
@@ -420,9 +415,6 @@ export default function EditEventPage() {
             />
             Show invite code to guests on the event page
           </label>
-          <div className="mt-3">
-            <ShareGalleryToggle checked={sharePublicly} onChange={setSharePublicly} />
-          </div>
         </section>
 
         <div className="mt-8 flex flex-wrap items-center gap-3">

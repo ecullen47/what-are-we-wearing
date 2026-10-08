@@ -12,6 +12,7 @@ import ColorChip, { SwatchDot } from '@/components/ColorChip'
 import SwatchPicker from '@/components/SwatchPicker'
 import ColorWarnings from '@/components/ColorWarnings'
 import PollCard, { type PollOption } from '@/components/PollCard'
+import EventGallery from '@/components/EventGallery'
 
 type EventData = {
   id: string
@@ -28,7 +29,6 @@ type EventData = {
   suggested_colors: string[]
   off_limit_colors: string[]
   color_notes: string | null
-  share_publicly: boolean
 }
 
 type OutfitPost = {
@@ -45,7 +45,6 @@ type OutfitPost = {
   options: PollOption[] | null
   my_vote: string | null
   total_votes: number | null
-  share_publicly: boolean
 }
 
 // Every stored photo a post uses (a poll has one per option).
@@ -96,10 +95,11 @@ export default function EventPage() {
   const [editCaption, setEditCaption] = useState('')
   const [editFile, setEditFile] = useState<File | null>(null)
   const [editColors, setEditColors] = useState<string[]>([])
-  const [editSharePublicly, setEditSharePublicly] = useState(false)
   const [editSubmitting, setEditSubmitting] = useState(false)
   const [editMessage, setEditMessage] = useState('')
   const [copied, setCopied] = useState(false)
+  // The outfit feed (post, vote, like, edit) or the photo gallery.
+  const [view, setView] = useState<'feed' | 'gallery'>('feed')
   // Post currently being voted on / liked / resolved, to disable its buttons.
   const [busyPostId, setBusyPostId] = useState<string | null>(null)
 
@@ -227,7 +227,6 @@ export default function EventPage() {
     setEditName(post.display_name)
     setEditCaption(post.caption ?? '')
     setEditColors(post.colors ?? [])
-    setEditSharePublicly(post.share_publicly)
     setEditFile(null)
     setEditMessage('')
   }
@@ -259,8 +258,6 @@ export default function EventPage() {
         p_image_url: imageUrl,
         p_caption: editCaption.trim() || null,
         p_colors: editColors,
-        // Only changeable while the host allows sharing; null leaves it as is.
-        p_share_publicly: event.share_publicly && !post.is_poll ? editSharePublicly : null,
       })
 
       if (error) {
@@ -296,6 +293,10 @@ export default function EventPage() {
   }
 
   const colorCounts = countColors(posts)
+  // Inspo images + one photo per outfit + each open poll option.
+  const photoCount =
+    (event?.inspo_image_urls.length ?? 0) +
+    posts.reduce((n, p) => n + (p.is_poll ? (p.options ?? []).length : 1), 0)
 
   if (loading) {
     return <div className="px-6 py-16 text-center text-stone-muted">Loading...</div>
@@ -399,7 +400,6 @@ export default function EventPage() {
           requiredColors={event.required_colors}
           offLimitColors={event.off_limit_colors}
           takenCounts={colorCounts}
-          eventSharesPublicly={event.share_publicly}
           onPosted={() => {
             // The form just recorded the new post as ours; re-read so its
             // Edit/Delete buttons show without a reload.
@@ -409,7 +409,31 @@ export default function EventPage() {
         />
       </div>
 
-      <h2 className="mt-10 font-display text-2xl text-stone">Outfits</h2>
+      <div className="mt-10 flex items-baseline gap-5 border-b border-stone-line" role="tablist">
+        {(
+          [
+            { key: 'feed', label: 'Outfits' },
+            { key: 'gallery', label: `Gallery${photoCount > 0 ? ` · ${photoCount}` : ''}` },
+          ] as const
+        ).map((t) => (
+          <button
+            key={t.key}
+            role="tab"
+            aria-selected={view === t.key}
+            onClick={() => setView(t.key)}
+            className={`-mb-px border-b-2 pb-2 font-display text-2xl transition-colors ${
+              view === t.key ? 'border-terracotta text-stone' : 'border-transparent text-stone-muted hover:text-stone'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {view === 'gallery' ? (
+        <EventGallery inspoUrls={event.inspo_image_urls} hostName={event.host_display_name} posts={posts} />
+      ) : (
+      <>
       {colorCounts.size > 0 && (
         <div className="mt-3">
           <p className="mb-1.5 text-xs font-medium tracking-wide text-stone-muted uppercase">Colors so far</p>
@@ -456,17 +480,6 @@ export default function EventPage() {
                     takenCounts={countColors(posts, post.id)}
                   />
                 </div>
-              )}
-              {!post.is_poll && event.share_publicly && (
-                <label className="mb-3 flex items-center gap-2 text-xs text-stone">
-                  <input
-                    type="checkbox"
-                    checked={editSharePublicly}
-                    onChange={(e) => setEditSharePublicly(e.target.checked)}
-                    className="h-4 w-4 accent-terracotta"
-                  />
-                  Share in the public inspo gallery (name and caption never shown)
-                </label>
               )}
               <div className="flex gap-2">
                 <button
@@ -522,9 +535,6 @@ export default function EventPage() {
                       ))}
                     </div>
                   )}
-                  {post.share_publicly && event.share_publicly && myPostIds.includes(post.id) && (
-                    <p className="mt-1 text-[11px] text-stone-muted">In public gallery</p>
-                  )}
                 </>
               )}
               <div className="mt-1 flex items-center gap-3">
@@ -563,6 +573,8 @@ export default function EventPage() {
           )
         )}
       </div>
+      </>
+      )}
     </div>
   )
 }

@@ -14,9 +14,6 @@ type Props = {
   offLimitColors: string[]
   // How many existing posts use each color id.
   takenCounts: Map<string, number>
-  // Whether the host opted this event into the public gallery; guests can
-  // only share their own outfit if so.
-  eventSharesPublicly: boolean
   onPosted: () => void
 }
 
@@ -35,10 +32,8 @@ export default function OutfitPostForm({
   requiredColors,
   offLimitColors,
   takenCounts,
-  eventSharesPublicly,
   onPosted,
 }: Props) {
-  const [sharePublicly, setSharePublicly] = useState(false)
   const [mode, setMode] = useState<'outfit' | 'poll'>('outfit')
   const [name, setName] = useState(() => getGuestName() ?? '')
   const [file, setFile] = useState<File | null>(null)
@@ -129,7 +124,6 @@ export default function OutfitPostForm({
         p_caption: caption.trim() || null,
         p_guest_token: getGuestToken(),
         p_colors: colors,
-        p_share_publicly: eventSharesPublicly && sharePublicly,
       })
 
       if (error) {
@@ -146,7 +140,6 @@ export default function OutfitPostForm({
       setFileInputKey((k) => k + 1)
       setCaption('')
       setColors([])
-      setSharePublicly(false)
       setMessage('Posted!')
       onPosted()
     } catch (err) {
@@ -227,20 +220,6 @@ export default function OutfitPostForm({
               takenCounts={takenCounts}
             />
           </div>
-        )}
-        {mode === 'outfit' && eventSharesPublicly && (
-          <label className="flex items-start gap-2 text-sm text-stone">
-            <input
-              type="checkbox"
-              checked={sharePublicly}
-              onChange={(e) => setSharePublicly(e.target.checked)}
-              className="mt-0.5 h-4 w-4 shrink-0 accent-terracotta"
-            />
-            <span>
-              Also share in the public inspo gallery
-              <span className="block text-xs text-stone-muted">Your name and caption are never shown there.</span>
-            </span>
-          </label>
         )}
       </div>
 
