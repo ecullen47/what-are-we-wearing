@@ -11,6 +11,7 @@ import { formatEventDate } from '@/lib/formatDate'
 import ColorChip, { SwatchDot } from '@/components/ColorChip'
 import SwatchPicker from '@/components/SwatchPicker'
 import ColorWarnings from '@/components/ColorWarnings'
+import PollCard, { type PollOption } from '@/components/PollCard'
 
 type EventData = {
   id: string
@@ -36,6 +37,18 @@ type OutfitPost = {
   caption: string | null
   colors: string[] | null
   created_at: string
+  is_poll: boolean
+  like_count: number
+  liked_by_me: boolean
+  // Poll fields; options is null for normal outfit posts.
+  options: PollOption[] | null
+  my_vote: string | null
+  total_votes: number | null
+}
+
+// Every stored photo a post uses (a poll has one per option).
+function postImageUrls(post: OutfitPost): string[] {
+  return [...new Set([post.image_url, ...(post.options ?? []).map((o) => o.image_url)])]
 }
 
 // How many posts use each color id, optionally ignoring one post (the one
@@ -84,9 +97,16 @@ export default function EventPage() {
   const [editSubmitting, setEditSubmitting] = useState(false)
   const [editMessage, setEditMessage] = useState('')
   const [copied, setCopied] = useState(false)
+  // Post currently being voted on / liked / resolved, to disable its buttons.
+  const [busyPostId, setBusyPostId] = useState<string | null>(null)
 
+  // The viewer token lets the server mark our own votes/likes and decide
+  // whether we've earned the right to see poll results.
   const loadPosts = useCallback(async () => {
-    const { data } = await supabase.rpc('get_outfit_posts_by_code', { p_code: code })
+    const { data } = await supabase.rpc('get_outfit_posts_by_code', {
+      p_code: code,
+      p_viewer_token: getGuestToken(),
+    })
     setPosts(data ?? [])
   }, [code])
 
@@ -150,11 +170,43 @@ export default function EventPage() {
         removeMyPostId(event.id, post.id)
         setMyPostIds(getMyPostIds(event.id))
       }
-      // The post is gone, so its photo is now unreferenced and deletable.
-      await removeEventImages('outfit-posts', [post.image_url])
+      // The post is gone, so its photos are now unreferenced and deletable.
+      await removeEventImages('outfit-posts', postImageUrls(post))
     }
 
     await loadPosts()
+  }
+
+  const handleVote = async (post: OutfitPost, optionId: string) => {
+    setBusyPostId(post.id)
+    await supabase.rpc('vote_on_poll', { p_code: code, p_option_id: optionId, p_voter_token: getGuestToken() })
+    await loadPosts()
+    setBusyPostId(null)
+  }
+
+  const handlePickWinner = async (post: OutfitPost, optionId: string) => {
+    const n = (post.options ?? []).findIndex((o) => o.id === optionId) + 1
+    if (!window.confirm(`Wear option ${n}? This closes the poll and keeps only that photo.`)) return
+    setBusyPostId(post.id)
+    const { data: otherPhotos, error } = await supabase.rpc('pick_poll_winner', {
+      p_code: code,
+      p_post_id: post.id,
+      p_option_id: optionId,
+      p_guest_token: getGuestToken(),
+    })
+    if (!error) {
+      // The other options are no longer referenced, so clean them up.
+      await removeEventImages('outfit-posts', (otherPhotos as string[] | null) ?? [])
+    }
+    await loadPosts()
+    setBusyPostId(null)
+  }
+
+  const handleToggleLike = async (post: OutfitPost) => {
+    setBusyPostId(post.id)
+    await supabase.rpc('toggle_outfit_like', { p_code: code, p_post_id: post.id, p_token: getGuestToken() })
+    await loadPosts()
+    setBusyPostId(null)
   }
 
   const handleAddToMyEvents = async () => {
@@ -372,27 +424,32 @@ export default function EventPage() {
                 onChange={(e) => setEditName(e.target.value)}
                 className={`${inputClass} mb-2`}
               />
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => setEditFile(e.target.files?.[0] ?? null)}
-                className="mb-2 block w-full text-xs text-stone-muted file:mr-2 file:rounded-full file:border-0 file:bg-terracotta-light file:px-3 file:py-1 file:text-xs file:font-medium file:text-terracotta-dark"
-              />
+              {/* A poll's photos are its options, so only name/question are editable. */}
+              {!post.is_poll && (
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => setEditFile(e.target.files?.[0] ?? null)}
+                  className="mb-2 block w-full text-xs text-stone-muted file:mr-2 file:rounded-full file:border-0 file:bg-terracotta-light file:px-3 file:py-1 file:text-xs file:font-medium file:text-terracotta-dark"
+                />
+              )}
               <input
                 value={editCaption}
                 onChange={(e) => setEditCaption(e.target.value)}
-                placeholder="Caption (optional)"
+                placeholder={post.is_poll ? 'Question (optional)' : 'Caption (optional)'}
                 className={`${inputClass} mb-2`}
               />
-              <div className="mb-3">
-                <SwatchPicker value={editColors} onChange={setEditColors} />
-                <ColorWarnings
-                  selected={editColors}
-                  required={event.required_colors}
-                  offLimit={event.off_limit_colors}
-                  takenCounts={countColors(posts, post.id)}
-                />
-              </div>
+              {!post.is_poll && (
+                <div className="mb-3">
+                  <SwatchPicker value={editColors} onChange={setEditColors} />
+                  <ColorWarnings
+                    selected={editColors}
+                    required={event.required_colors}
+                    offLimit={event.off_limit_colors}
+                    takenCounts={countColors(posts, post.id)}
+                  />
+                </div>
+              )}
               <div className="flex gap-2">
                 <button
                   onClick={() => handleSaveEdit(post)}
@@ -412,25 +469,58 @@ export default function EventPage() {
               {editMessage && <p className="mt-2 text-xs text-stone-muted">{editMessage}</p>}
             </div>
           ) : (
-            <div key={post.id}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={post.image_url}
-                alt={`${post.display_name}'s outfit`}
-                className="aspect-square w-full rounded-lg object-cover"
-              />
-              <p className="mt-1.5 text-sm text-stone">
-                <strong>{post.display_name}</strong>
-                {post.caption ? <span className="text-stone-muted"> — {post.caption}</span> : ''}
-              </p>
-              {(post.colors ?? []).length > 0 && (
-                <div className="mt-1 flex gap-1">
-                  {(post.colors ?? []).map((c) => (
-                    <SwatchDot key={c} value={c} />
-                  ))}
-                </div>
+            <div
+              key={post.id}
+              className={post.is_poll ? 'col-span-full rounded-lg border border-stone-line bg-white p-3' : ''}
+            >
+              {post.is_poll ? (
+                <PollCard
+                  displayName={post.display_name}
+                  caption={post.caption}
+                  options={post.options ?? []}
+                  myVote={post.my_vote}
+                  totalVotes={post.total_votes}
+                  isMine={myPostIds.includes(post.id)}
+                  busy={busyPostId === post.id}
+                  onVote={(optionId) => handleVote(post, optionId)}
+                  onPickWinner={(optionId) => handlePickWinner(post, optionId)}
+                />
+              ) : (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={post.image_url}
+                    alt={`${post.display_name}'s outfit`}
+                    className="aspect-square w-full rounded-lg object-cover"
+                  />
+                  <p className="mt-1.5 text-sm text-stone">
+                    <strong>{post.display_name}</strong>
+                    {post.caption ? <span className="text-stone-muted"> — {post.caption}</span> : ''}
+                  </p>
+                  {(post.colors ?? []).length > 0 && (
+                    <div className="mt-1 flex gap-1">
+                      {(post.colors ?? []).map((c) => (
+                        <SwatchDot key={c} value={c} />
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
-              <div className="mt-1 flex gap-3">
+              <div className="mt-1 flex items-center gap-3">
+                {!post.is_poll && (
+                  <button
+                    onClick={() => handleToggleLike(post)}
+                    disabled={busyPostId === post.id}
+                    aria-pressed={post.liked_by_me}
+                    aria-label={post.liked_by_me ? 'Unlike' : 'Like'}
+                    className={`flex items-center gap-1 text-xs transition-colors disabled:opacity-60 ${
+                      post.liked_by_me ? 'text-terracotta' : 'text-stone-muted hover:text-terracotta'
+                    }`}
+                  >
+                    <span className="text-sm leading-none">{post.liked_by_me ? '♥' : '♡'}</span>
+                    {post.like_count > 0 && post.like_count}
+                  </button>
+                )}
                 {myPostIds.includes(post.id) && (
                   <button
                     onClick={() => handleStartEdit(post)}
