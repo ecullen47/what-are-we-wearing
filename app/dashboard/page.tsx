@@ -110,6 +110,12 @@ export default function DashboardPage() {
       return
     }
 
+    if (events?.some((e) => e.id === (eventData as { id: string }).id)) {
+      setMessage(`"${(eventData as { name: string }).name}" is your event — it's already under Your Events.`)
+      setJoining(false)
+      return
+    }
+
     const { data: userData } = await supabase.auth.getUser()
     const user = userData?.user
     if (!user) {

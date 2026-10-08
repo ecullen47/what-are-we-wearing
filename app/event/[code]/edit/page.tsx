@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { uploadEventImage } from '@/lib/uploadImage'
+import { listEventFiles, removeEventImages, uploadEventImage } from '@/lib/uploadImage'
 
 type EventRow = {
   id: string
@@ -40,13 +40,6 @@ function todayLocalISO() {
   return new Date(now.getTime() - offset).toISOString().slice(0, 10)
 }
 
-// Public URLs look like .../storage/v1/object/public/event-inspo/<eventId>/<file>
-function storagePathFromPublicUrl(url: string): string | null {
-  const marker = `/object/public/${INSPO_BUCKET}/`
-  const i = url.indexOf(marker)
-  return i === -1 ? null : decodeURIComponent(url.slice(i + marker.length))
-}
-
 const inputBase =
   'block w-full rounded-md border bg-white px-4 py-2 text-stone placeholder:text-stone-muted focus:outline-none'
 const inputOk = 'border-stone-line focus:border-terracotta'
@@ -78,6 +71,7 @@ export default function EditEventPage() {
   const [errors, setErrors] = useState<FieldErrors>({})
   const [message, setMessage] = useState('')
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     const load = async () => {
@@ -175,21 +169,53 @@ export default function EditEventPage() {
         return
       }
 
-      // Clean up images the host removed. Best effort: the event is already
-      // saved, so a failure here just leaves an unused file behind.
-      const removedPaths = (event.inspo_image_urls ?? [])
-        .filter((url) => !keptInspo.includes(url))
-        .map(storagePathFromPublicUrl)
-        .filter((p): p is string => !!p)
-      if (removedPaths.length > 0) {
-        await supabase.storage.from(INSPO_BUCKET).remove(removedPaths)
-      }
+      // Clean up images the host removed now that the event is saved.
+      await removeEventImages(
+        INSPO_BUCKET,
+        (event.inspo_image_urls ?? []).filter((url) => !keptInspo.includes(url))
+      )
 
       router.push(`/event/${code}`)
     } catch (err) {
       setMessage(`Error: ${err instanceof Error ? err.message : String(err)}`)
       setSaving(false)
     }
+  }
+
+  const handleDeleteEvent = async () => {
+    if (!event || saving || deleting) return
+    if (
+      !window.confirm(
+        `Delete "${event.name}"? This permanently removes the event, its inspo images, and every outfit guests have posted. This can't be undone.`
+      )
+    )
+      return
+
+    setDeleting(true)
+    setMessage('')
+
+    // Order matters: the inspo delete policy checks that the host still
+    // owns the event, so those files go first. Outfit photos can only be
+    // removed once no post references them, i.e. after the event (and its
+    // posts, via cascade) is gone.
+    const outfitPaths = await listEventFiles('outfit-posts', event.id)
+    const inspoPaths = await listEventFiles(INSPO_BUCKET, event.id)
+    if (inspoPaths.length > 0) {
+      await supabase.storage.from(INSPO_BUCKET).remove(inspoPaths)
+    }
+
+    const { error } = await supabase.from('events').delete().eq('id', event.id)
+    if (error) {
+      setMessage(`Error: ${error.message}`)
+      setDeleting(false)
+      return
+    }
+
+    if (outfitPaths.length > 0) {
+      await supabase.storage.from('outfit-posts').remove(outfitPaths)
+    }
+
+    router.push('/dashboard')
   }
 
   if (loading) {
@@ -411,7 +437,7 @@ export default function EditEventPage() {
         <div className="mt-8 flex flex-wrap items-center gap-3">
           <button
             type="submit"
-            disabled={saving}
+            disabled={saving || deleting}
             className="rounded-full bg-terracotta px-6 py-2.5 font-medium text-cream transition-colors hover:bg-terracotta-dark disabled:opacity-50"
           >
             {saving ? 'Saving...' : 'Save Changes'}
@@ -425,6 +451,21 @@ export default function EditEventPage() {
         </div>
         {message && <p className="mt-3 text-sm text-stone-muted">{message}</p>}
       </form>
+
+      <section className="mt-14 rounded-lg border border-terracotta-dark/30 p-4">
+        <h2 className={sectionTitle}>Delete Event</h2>
+        <p className="mt-1 text-sm text-stone-muted">
+          Permanently removes this event, its inspo images, and all posted outfits.
+        </p>
+        <button
+          type="button"
+          onClick={handleDeleteEvent}
+          disabled={saving || deleting}
+          className="mt-3 rounded-full border border-terracotta-dark px-5 py-2 text-sm font-medium text-terracotta-dark transition-colors hover:bg-terracotta-dark hover:text-cream disabled:opacity-50"
+        >
+          {deleting ? 'Deleting...' : 'Delete Event'}
+        </button>
+      </section>
     </div>
   )
 }

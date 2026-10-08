@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import OutfitPostForm from '@/components/OutfitPostForm'
 import { getGuestToken, getMyPostIds, removeMyPostId } from '@/lib/guestIdentity'
-import { uploadEventImage } from '@/lib/uploadImage'
+import { removeEventImages, uploadEventImage } from '@/lib/uploadImage'
 import { formatEventDate } from '@/lib/formatDate'
 
 type EventData = {
@@ -54,6 +54,8 @@ export default function EventPage() {
   const [notFound, setNotFound] = useState(false)
   const [isHost, setIsHost] = useState(false)
   const [isAttending, setIsAttending] = useState(false)
+  const [userId, setUserId] = useState<string | null>(null)
+  const [joining, setJoining] = useState(false)
   const [myPostIds, setMyPostIds] = useState<string[]>([])
   const [editingPostId, setEditingPostId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
@@ -87,6 +89,7 @@ export default function EventPage() {
 
       const { data: userData } = await supabase.auth.getUser()
       if (userData?.user) {
+        setUserId(userData.user.id)
         const { data: ownEvent } = await supabase
           .from('events')
           .select('id')
@@ -110,23 +113,38 @@ export default function EventPage() {
     load()
   }, [code, loadPosts])
 
-  const handleDelete = async (postId: string) => {
+  const handleDelete = async (post: OutfitPost) => {
     if (!event) return
     if (!window.confirm('Delete this outfit post?')) return
 
-    if (isHost) {
-      await supabase.from('outfit_posts').delete().eq('id', postId)
-    } else {
-      await supabase.rpc('delete_own_outfit_post', {
-        p_code: code,
-        p_post_id: postId,
-        p_guest_token: getGuestToken(),
-      })
-      removeMyPostId(event.id, postId)
-      setMyPostIds(getMyPostIds(event.id))
+    const { error } = isHost
+      ? await supabase.from('outfit_posts').delete().eq('id', post.id)
+      : await supabase.rpc('delete_own_outfit_post', {
+          p_code: code,
+          p_post_id: post.id,
+          p_guest_token: getGuestToken(),
+        })
+
+    if (!error) {
+      if (!isHost) {
+        removeMyPostId(event.id, post.id)
+        setMyPostIds(getMyPostIds(event.id))
+      }
+      // The post is gone, so its photo is now unreferenced and deletable.
+      await removeEventImages('outfit-posts', [post.image_url])
     }
 
     await loadPosts()
+  }
+
+  const handleAddToMyEvents = async () => {
+    if (!event || !userId) return
+    setJoining(true)
+    const { error } = await supabase
+      .from('event_attendance')
+      .upsert({ event_id: event.id, user_id: userId }, { onConflict: 'event_id,user_id', ignoreDuplicates: true })
+    if (!error) setIsAttending(true)
+    setJoining(false)
   }
 
   const handleStartEdit = (post: OutfitPost) => {
@@ -171,6 +189,11 @@ export default function EventPage() {
         return
       }
 
+      // Replaced photo is no longer referenced by the post, so clean it up.
+      if (editFile && imageUrl !== post.image_url) {
+        await removeEventImages('outfit-posts', [post.image_url])
+      }
+
       setEditingPostId(null)
       await loadPosts()
     } catch (err) {
@@ -197,7 +220,20 @@ export default function EventPage() {
   }
 
   if (notFound || !event) {
-    return <div className="px-6 py-16 text-center text-stone-muted">Event not found.</div>
+    return (
+      <div className="px-6 py-16 text-center">
+        <h1 className="font-display text-3xl text-stone">Event not found</h1>
+        <p className="mt-2 text-stone-muted">
+          Double-check the invite link or code. The event may also have been deleted by its host.
+        </p>
+        <Link
+          href="/"
+          className="mt-6 inline-block rounded-full bg-terracotta px-6 py-2.5 font-medium text-cream transition-colors hover:bg-terracotta-dark"
+        >
+          Go to homepage
+        </Link>
+      </div>
+    )
   }
 
   return (
@@ -216,6 +252,15 @@ export default function EventPage() {
             </Link>
           )}
         </div>
+      )}
+      {userId && !isHost && !isAttending && (
+        <button
+          onClick={handleAddToMyEvents}
+          disabled={joining}
+          className="rounded-full border border-terracotta px-4 py-1.5 text-sm font-medium text-terracotta transition-colors hover:bg-terracotta-light disabled:opacity-50"
+        >
+          {joining ? 'Adding...' : '+ Add to my events'}
+        </button>
       )}
       {event.host_display_name && (
         <p className="mt-2 text-sm text-stone-muted">Hosted by {event.host_display_name}</p>
@@ -264,7 +309,16 @@ export default function EventPage() {
       {event.dress_code_text && <p className="mt-1 text-stone-muted">Dress code: {event.dress_code_text}</p>}
 
       <div className="mt-8">
-        <OutfitPostForm eventId={event.id} inviteCode={event.invite_code} onPosted={loadPosts} />
+        <OutfitPostForm
+          eventId={event.id}
+          inviteCode={event.invite_code}
+          onPosted={() => {
+            // The form just recorded the new post as ours; re-read so its
+            // Edit/Delete buttons show without a reload.
+            setMyPostIds(getMyPostIds(event.id))
+            loadPosts()
+          }}
+        />
       </div>
 
       <h2 className="mt-10 font-display text-2xl text-stone">Outfits</h2>
@@ -330,7 +384,7 @@ export default function EventPage() {
                 )}
                 {(isHost || myPostIds.includes(post.id)) && (
                   <button
-                    onClick={() => handleDelete(post.id)}
+                    onClick={() => handleDelete(post)}
                     className="text-xs text-stone-muted hover:text-terracotta hover:underline"
                   >
                     Delete

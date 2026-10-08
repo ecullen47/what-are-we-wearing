@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 
@@ -9,6 +9,14 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [message, setMessage] = useState('')
   const router = useRouter()
+
+  // Already logged in (e.g. via the homepage's "Create an Event" button):
+  // skip the form and go straight to the dashboard.
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) router.replace('/dashboard')
+    })
+  }, [router])
 
   const handleSignUp = async () => {
     const { error } = await supabase.auth.signUp({ email, password })
@@ -25,6 +33,23 @@ export default function LoginPage() {
       setMessage(`Error: ${error.message}`)
     } else {
       router.push('/dashboard')
+    }
+  }
+
+  const handleForgotPassword = async () => {
+    if (!email.trim()) {
+      setMessage('Enter your email above, then click "Forgot password?" again.')
+      return
+    }
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/reset-password`,
+    })
+    if (error) {
+      setMessage(`Error: ${error.message}`)
+    } else {
+      // Same message whether or not the account exists, so this can't be
+      // used to check which emails are registered.
+      setMessage('If an account exists for that email, a password reset link is on its way.')
     }
   }
 
@@ -62,6 +87,13 @@ export default function LoginPage() {
           Sign Up
         </button>
       </div>
+
+      <button
+        onClick={handleForgotPassword}
+        className="mt-4 self-start text-sm text-stone-muted underline decoration-stone-line underline-offset-4 hover:text-terracotta"
+      >
+        Forgot password?
+      </button>
 
       {message && <p className="mt-4 text-sm text-stone-muted">{message}</p>}
     </div>
