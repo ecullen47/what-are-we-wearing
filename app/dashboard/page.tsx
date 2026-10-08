@@ -28,25 +28,32 @@ function EventCard({
   name,
   date,
   location,
+  action,
   children,
 }: {
   href: string
   name: string
   date: string
   location: string
+  // Rendered beside the link rather than inside it, since a button
+  // nested in a link is invalid and would also trigger navigation.
+  action?: React.ReactNode
   children?: React.ReactNode
 }) {
   return (
-    <Link
-      href={href}
-      className="block rounded-lg border border-stone-line bg-white p-4 transition-colors hover:border-terracotta"
-    >
-      <strong className="font-display text-lg text-stone">{name}</strong>
-      <p className="mt-1 text-sm text-stone-muted">
-        {formatEventDate(date)} &middot; {location}
-      </p>
-      {children}
-    </Link>
+    <div className="relative">
+      <Link
+        href={href}
+        className={`block rounded-lg border border-stone-line bg-white p-4 transition-colors hover:border-terracotta ${action ? 'pr-24' : ''}`}
+      >
+        <strong className="font-display text-lg text-stone">{name}</strong>
+        <p className="mt-1 text-sm text-stone-muted">
+          {formatEventDate(date)} &middot; {location}
+        </p>
+        {children}
+      </Link>
+      {action && <div className="absolute top-4 right-4">{action}</div>}
+    </div>
   )
 }
 
@@ -129,12 +136,38 @@ export default function DashboardPage() {
     setJoining(false)
   }
 
+  const handleLeave = async (eventId: string, eventName: string) => {
+    if (!window.confirm(`Leave "${eventName}"? It will be removed from your Attending list.`)) return
+
+    const { error } = await supabase.from('event_attendance').delete().eq('event_id', eventId)
+    if (error) {
+      setMessage(`Error: ${error.message}`)
+      return
+    }
+
+    setMessage(`Left "${eventName}".`)
+    await loadAttending()
+  }
+
+  const handleLogOut = async () => {
+    await supabase.auth.signOut()
+    router.push('/')
+  }
+
   if (events === null) {
     return <div className="px-6 py-16 text-center text-stone-muted">Loading...</div>
   }
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-12">
+      <div className="mb-4 flex justify-end">
+        <button
+          onClick={handleLogOut}
+          className="text-sm text-stone-muted underline decoration-stone-line underline-offset-4 hover:text-terracotta"
+        >
+          Log out
+        </button>
+      </div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="font-display text-3xl text-stone">Your Events</h1>
         <Link
@@ -203,6 +236,14 @@ export default function DashboardPage() {
               name={event.name}
               date={event.event_date}
               location={event.location}
+              action={
+                <button
+                  onClick={() => handleLeave(event.event_id, event.name)}
+                  className="rounded-full border border-stone-line px-3 py-1 text-xs font-medium text-stone-muted transition-colors hover:border-terracotta hover:text-terracotta"
+                >
+                  Leave
+                </button>
+              }
             />
           ))}
         </div>
