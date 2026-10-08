@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { uploadEventImage } from '@/lib/uploadImage'
 import ColorRulesPicker, { type ColorRules } from '@/components/ColorRulesPicker'
+import ShareGalleryToggle from '@/components/ShareGalleryToggle'
 
 type Event = {
   id: string
@@ -31,6 +32,7 @@ export default function EventSetupPage() {
   const [colorRules, setColorRules] = useState<ColorRules>({ required: [], suggested: [], offLimit: [] })
   const [colorNotes, setColorNotes] = useState('')
   const [showInviteCode, setShowInviteCode] = useState(true)
+  const [sharePublicly, setSharePublicly] = useState(false)
   const [message, setMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -99,6 +101,7 @@ export default function EventSetupPage() {
           off_limit_colors: colorRules.offLimit,
           color_notes: colorNotes.trim() || null,
           show_invite_code_to_guests: showInviteCode,
+          share_publicly: sharePublicly,
         })
         .eq('id', event.id)
 
@@ -168,6 +171,8 @@ export default function EventSetupPage() {
           />
           Show invite code to guests on the event page
         </label>
+
+        <ShareGalleryToggle checked={sharePublicly} onChange={setSharePublicly} />
       </div>
 
       <div className="mt-6 flex flex-wrap items-center gap-3">

@@ -28,6 +28,7 @@ type EventData = {
   suggested_colors: string[]
   off_limit_colors: string[]
   color_notes: string | null
+  share_publicly: boolean
 }
 
 type OutfitPost = {
@@ -44,6 +45,7 @@ type OutfitPost = {
   options: PollOption[] | null
   my_vote: string | null
   total_votes: number | null
+  share_publicly: boolean
 }
 
 // Every stored photo a post uses (a poll has one per option).
@@ -94,6 +96,7 @@ export default function EventPage() {
   const [editCaption, setEditCaption] = useState('')
   const [editFile, setEditFile] = useState<File | null>(null)
   const [editColors, setEditColors] = useState<string[]>([])
+  const [editSharePublicly, setEditSharePublicly] = useState(false)
   const [editSubmitting, setEditSubmitting] = useState(false)
   const [editMessage, setEditMessage] = useState('')
   const [copied, setCopied] = useState(false)
@@ -224,6 +227,7 @@ export default function EventPage() {
     setEditName(post.display_name)
     setEditCaption(post.caption ?? '')
     setEditColors(post.colors ?? [])
+    setEditSharePublicly(post.share_publicly)
     setEditFile(null)
     setEditMessage('')
   }
@@ -255,6 +259,8 @@ export default function EventPage() {
         p_image_url: imageUrl,
         p_caption: editCaption.trim() || null,
         p_colors: editColors,
+        // Only changeable while the host allows sharing; null leaves it as is.
+        p_share_publicly: event.share_publicly && !post.is_poll ? editSharePublicly : null,
       })
 
       if (error) {
@@ -393,6 +399,7 @@ export default function EventPage() {
           requiredColors={event.required_colors}
           offLimitColors={event.off_limit_colors}
           takenCounts={colorCounts}
+          eventSharesPublicly={event.share_publicly}
           onPosted={() => {
             // The form just recorded the new post as ours; re-read so its
             // Edit/Delete buttons show without a reload.
@@ -450,6 +457,17 @@ export default function EventPage() {
                   />
                 </div>
               )}
+              {!post.is_poll && event.share_publicly && (
+                <label className="mb-3 flex items-center gap-2 text-xs text-stone">
+                  <input
+                    type="checkbox"
+                    checked={editSharePublicly}
+                    onChange={(e) => setEditSharePublicly(e.target.checked)}
+                    className="h-4 w-4 accent-terracotta"
+                  />
+                  Share in the public inspo gallery (name and caption never shown)
+                </label>
+              )}
               <div className="flex gap-2">
                 <button
                   onClick={() => handleSaveEdit(post)}
@@ -503,6 +521,9 @@ export default function EventPage() {
                         <SwatchDot key={c} value={c} />
                       ))}
                     </div>
+                  )}
+                  {post.share_publicly && event.share_publicly && myPostIds.includes(post.id) && (
+                    <p className="mt-1 text-[11px] text-stone-muted">In public gallery</p>
                   )}
                 </>
               )}
