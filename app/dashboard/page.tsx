@@ -166,13 +166,7 @@ export default function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-12">
-      <div className="mb-4 flex items-center justify-end gap-4">
-        <Link
-          href="/gallery"
-          className="text-sm text-terracotta underline decoration-terracotta/40 underline-offset-4 hover:decoration-terracotta"
-        >
-          Browse inspo gallery
-        </Link>
+      <div className="mb-4 flex justify-end">
         <button
           onClick={handleLogOut}
           className="text-sm text-stone-muted underline decoration-stone-line underline-offset-4 hover:text-terracotta"
