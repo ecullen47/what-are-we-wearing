@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase'
 import OutfitPostForm from '@/components/OutfitPostForm'
 import { getGuestToken, getMyPostIds, removeMyPostId } from '@/lib/guestIdentity'
 import { uploadEventImage } from '@/lib/uploadImage'
+import { formatEventDate } from '@/lib/formatDate'
 
 type EventData = {
   id: string
@@ -202,9 +203,19 @@ export default function EventPage() {
   return (
     <div className="mx-auto max-w-2xl px-6 py-12">
       {(isHost || isAttending) && (
-        <Link href="/dashboard" className="text-sm text-terracotta hover:underline">
-          &larr; Back to Dashboard
-        </Link>
+        <div className="flex items-center justify-between gap-3">
+          <Link href="/dashboard" className="text-sm text-terracotta hover:underline">
+            &larr; Back to Dashboard
+          </Link>
+          {isHost && (
+            <Link
+              href={`/event/${code}/edit`}
+              className="shrink-0 rounded-full border border-terracotta px-4 py-1.5 text-sm font-medium text-terracotta transition-colors hover:bg-terracotta-light"
+            >
+              Edit Event
+            </Link>
+          )}
+        </div>
       )}
       {event.host_display_name && (
         <p className="mt-2 text-sm text-stone-muted">Hosted by {event.host_display_name}</p>
@@ -248,7 +259,7 @@ export default function EventPage() {
       )}
 
       <p className="mt-6 text-stone">
-        {event.event_date} &middot; {event.location}
+        {formatEventDate(event.event_date)} &middot; {event.location}
       </p>
       {event.dress_code_text && <p className="mt-1 text-stone-muted">Dress code: {event.dress_code_text}</p>}
 

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { formatEventDate } from '@/lib/formatDate'
 
 type EventSummary = {
   id: string
@@ -42,7 +43,7 @@ function EventCard({
     >
       <strong className="font-display text-lg text-stone">{name}</strong>
       <p className="mt-1 text-sm text-stone-muted">
-        {date} &middot; {location}
+        {formatEventDate(date)} &middot; {location}
       </p>
       {children}
     </Link>

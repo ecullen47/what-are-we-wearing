@@ -9,6 +9,10 @@ type Event = {
   id: string
   host_id: string
   invite_code: string
+  inspo_image_urls: string[] | null
+  required_colors: string[] | null
+  suggested_colors: string[] | null
+  off_limit_colors: string[] | null
 }
 
 function parseColorList(input: string): string[] {
@@ -43,12 +47,25 @@ export default function EventSetupPage() {
 
       const { data, error } = await supabase
         .from('events')
-        .select('id, host_id, invite_code')
+        .select('id, host_id, invite_code, inspo_image_urls, required_colors, suggested_colors, off_limit_colors')
         .eq('invite_code', code)
         .single()
 
       if (error || !data || !user || data.host_id !== user.id) {
         router.push(`/event/${code}`)
+        return
+      }
+
+      // Setup is the first-time flow. If the event already has inspo or
+      // colors, send the host to the edit page so nothing gets overwritten.
+      const alreadySetUp = [
+        data.inspo_image_urls,
+        data.required_colors,
+        data.suggested_colors,
+        data.off_limit_colors,
+      ].some((list) => (list ?? []).length > 0)
+      if (alreadySetUp) {
+        router.replace(`/event/${code}/edit`)
         return
       }
 
@@ -80,7 +97,7 @@ export default function EventSetupPage() {
       const { error } = await supabase
         .from('events')
         .update({
-          inspo_image_urls: inspoUrls,
+          inspo_image_urls: [...(event.inspo_image_urls ?? []), ...inspoUrls],
           required_colors: parseColorList(requiredColors),
           suggested_colors: parseColorList(suggestedColors),
           off_limit_colors: parseColorList(offLimitColors),
