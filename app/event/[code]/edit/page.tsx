@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { FormSkeleton } from '@/components/Skeleton'
 import { listEventFiles, removeEventImages, uploadEventImage } from '@/lib/uploadImage'
 import { toPaletteId } from '@/lib/palette'
 import ColorRulesPicker, { type ColorRules } from '@/components/ColorRulesPicker'
@@ -224,7 +225,7 @@ export default function EditEventPage() {
   }
 
   if (loading) {
-    return <div className="px-6 py-16 text-center text-stone-muted">Loading...</div>
+    return <FormSkeleton />
   }
 
   const field = (key: keyof FieldErrors) => `${inputBase} ${errors[key] ? inputErr : inputOk}`

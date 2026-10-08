@@ -6,6 +6,7 @@ import { removeEventImages, uploadEventImage } from '@/lib/uploadImage'
 import { getGuestName, setGuestName, getGuestToken, addMyPostId } from '@/lib/guestIdentity'
 import SwatchPicker from '@/components/SwatchPicker'
 import ColorWarnings, { offLimitMatches } from '@/components/ColorWarnings'
+import { toast } from '@/lib/toast'
 
 type Props = {
   eventId: string
@@ -89,7 +90,8 @@ export default function OutfitPostForm({
       setFileInputKey((k) => k + 1)
       setCaption('')
       setMode('outfit')
-      setMessage('Poll posted! Guests can vote now.')
+      setMessage('')
+      toast('Poll posted! Let the voting begin.')
       onPosted()
     } catch (err) {
       setMessage(`Error: ${err instanceof Error ? err.message : String(err)}`)
@@ -140,7 +142,8 @@ export default function OutfitPostForm({
       setFileInputKey((k) => k + 1)
       setCaption('')
       setColors([])
-      setMessage('Posted!')
+      setMessage('')
+      toast('Posted! Looking good.')
       onPosted()
     } catch (err) {
       setMessage(`Error: ${err instanceof Error ? err.message : String(err)}`)
