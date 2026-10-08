@@ -4,22 +4,40 @@ import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { uploadEventImage } from '@/lib/uploadImage'
 import { getGuestName, setGuestName, getGuestToken, addMyPostId } from '@/lib/guestIdentity'
+import SwatchPicker from '@/components/SwatchPicker'
+import ColorWarnings, { offLimitMatches } from '@/components/ColorWarnings'
 
 type Props = {
   eventId: string
   inviteCode: string
+  requiredColors: string[]
+  offLimitColors: string[]
+  // How many existing posts use each color id.
+  takenCounts: Map<string, number>
   onPosted: () => void
 }
 
 const inputClass =
   'block w-full rounded-md border border-stone-line bg-cream px-3 py-2 text-sm text-stone placeholder:text-stone-muted focus:border-terracotta focus:outline-none'
 
-export default function OutfitPostForm({ eventId, inviteCode, onPosted }: Props) {
+export default function OutfitPostForm({
+  eventId,
+  inviteCode,
+  requiredColors,
+  offLimitColors,
+  takenCounts,
+  onPosted,
+}: Props) {
   const [name, setName] = useState(() => getGuestName() ?? '')
   const [file, setFile] = useState<File | null>(null)
   const [caption, setCaption] = useState('')
+  const [colors, setColors] = useState<string[]>([])
   const [message, setMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  // Bumped after posting to reset the (uncontrolled) file input.
+  const [fileInputKey, setFileInputKey] = useState(0)
+
+  const clashes = offLimitMatches(colors, offLimitColors)
 
   const handleSubmit = async () => {
     if (!name.trim()) {
@@ -45,6 +63,7 @@ export default function OutfitPostForm({ eventId, inviteCode, onPosted }: Props)
         p_image_url: imageUrl,
         p_caption: caption.trim() || null,
         p_guest_token: getGuestToken(),
+        p_colors: colors,
       })
 
       if (error) {
@@ -58,7 +77,9 @@ export default function OutfitPostForm({ eventId, inviteCode, onPosted }: Props)
       }
 
       setFile(null)
+      setFileInputKey((k) => k + 1)
       setCaption('')
+      setColors([])
       setMessage('Posted!')
       onPosted()
     } catch (err) {
@@ -80,6 +101,7 @@ export default function OutfitPostForm({ eventId, inviteCode, onPosted }: Props)
           className={inputClass}
         />
         <input
+          key={fileInputKey}
           type="file"
           accept="image/*"
           onChange={(e) => setFile(e.target.files?.[0] ?? null)}
@@ -91,6 +113,18 @@ export default function OutfitPostForm({ eventId, inviteCode, onPosted }: Props)
           placeholder="Caption (optional)"
           className={inputClass}
         />
+        <div>
+          <p className="mb-2 text-sm font-medium text-stone">
+            Outfit colors <span className="font-normal text-stone-muted">(optional)</span>
+          </p>
+          <SwatchPicker value={colors} onChange={setColors} />
+          <ColorWarnings
+            selected={colors}
+            required={requiredColors}
+            offLimit={offLimitColors}
+            takenCounts={takenCounts}
+          />
+        </div>
       </div>
 
       <button
@@ -98,7 +132,7 @@ export default function OutfitPostForm({ eventId, inviteCode, onPosted }: Props)
         disabled={submitting}
         className="mt-4 rounded-full bg-terracotta px-5 py-2 text-sm font-medium text-cream transition-colors hover:bg-terracotta-dark disabled:opacity-50"
       >
-        {submitting ? 'Posting...' : 'Post Outfit'}
+        {submitting ? 'Posting...' : clashes.length > 0 ? 'Post Anyway' : 'Post Outfit'}
       </button>
       {message && <p className="mt-2 text-sm text-stone-muted">{message}</p>}
     </div>

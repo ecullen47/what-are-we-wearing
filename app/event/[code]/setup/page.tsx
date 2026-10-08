@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { uploadEventImage } from '@/lib/uploadImage'
+import ColorRulesPicker, { type ColorRules } from '@/components/ColorRulesPicker'
 
 type Event = {
   id: string
@@ -13,13 +14,7 @@ type Event = {
   required_colors: string[] | null
   suggested_colors: string[] | null
   off_limit_colors: string[] | null
-}
-
-function parseColorList(input: string): string[] {
-  return input
-    .split(',')
-    .map((c) => c.trim())
-    .filter((c) => c.length > 0)
+  color_notes: string | null
 }
 
 const inputClass =
@@ -33,9 +28,8 @@ export default function EventSetupPage() {
   const [event, setEvent] = useState<Event | null>(null)
   const [loading, setLoading] = useState(true)
   const [files, setFiles] = useState<FileList | null>(null)
-  const [requiredColors, setRequiredColors] = useState('')
-  const [suggestedColors, setSuggestedColors] = useState('')
-  const [offLimitColors, setOffLimitColors] = useState('')
+  const [colorRules, setColorRules] = useState<ColorRules>({ required: [], suggested: [], offLimit: [] })
+  const [colorNotes, setColorNotes] = useState('')
   const [showInviteCode, setShowInviteCode] = useState(true)
   const [message, setMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -47,7 +41,9 @@ export default function EventSetupPage() {
 
       const { data, error } = await supabase
         .from('events')
-        .select('id, host_id, invite_code, inspo_image_urls, required_colors, suggested_colors, off_limit_colors')
+        .select(
+          'id, host_id, invite_code, inspo_image_urls, required_colors, suggested_colors, off_limit_colors, color_notes'
+        )
         .eq('invite_code', code)
         .single()
 
@@ -63,7 +59,7 @@ export default function EventSetupPage() {
         data.required_colors,
         data.suggested_colors,
         data.off_limit_colors,
-      ].some((list) => (list ?? []).length > 0)
+      ].some((list) => (list ?? []).length > 0) || !!data.color_notes
       if (alreadySetUp) {
         router.replace(`/event/${code}/edit`)
         return
@@ -98,9 +94,10 @@ export default function EventSetupPage() {
         .from('events')
         .update({
           inspo_image_urls: [...(event.inspo_image_urls ?? []), ...inspoUrls],
-          required_colors: parseColorList(requiredColors),
-          suggested_colors: parseColorList(suggestedColors),
-          off_limit_colors: parseColorList(offLimitColors),
+          required_colors: colorRules.required,
+          suggested_colors: colorRules.suggested,
+          off_limit_colors: colorRules.offLimit,
+          color_notes: colorNotes.trim() || null,
           show_invite_code_to_guests: showInviteCode,
         })
         .eq('id', event.id)
@@ -142,31 +139,22 @@ export default function EventSetupPage() {
         </div>
 
         <div>
-          <label className={labelClass}>Required Colors (comma separated)</label>
-          <input
-            value={requiredColors}
-            onChange={(e) => setRequiredColors(e.target.value)}
-            placeholder="e.g. navy, gold"
-            className={inputClass}
-          />
+          <label className={labelClass}>Colors</label>
+          <p className="mb-3 text-xs text-stone-muted">
+            Pick a category, then tap colors. Guests get a heads-up if they tag an off-limit color.
+          </p>
+          <ColorRulesPicker value={colorRules} onChange={setColorRules} />
         </div>
 
         <div>
-          <label className={labelClass}>Suggested Colors (comma separated)</label>
+          <label htmlFor="color-notes" className={labelClass}>
+            Color notes <span className="font-normal text-stone-muted">(optional)</span>
+          </label>
           <input
-            value={suggestedColors}
-            onChange={(e) => setSuggestedColors(e.target.value)}
-            placeholder="e.g. sage green, cream"
-            className={inputClass}
-          />
-        </div>
-
-        <div>
-          <label className={labelClass}>Off-Limit Colors (comma separated)</label>
-          <input
-            value={offLimitColors}
-            onChange={(e) => setOffLimitColors(e.target.value)}
-            placeholder="e.g. dusty rose (bridesmaid color)"
+            id="color-notes"
+            value={colorNotes}
+            onChange={(e) => setColorNotes(e.target.value)}
+            placeholder='e.g. "Bridesmaids are in dusty rose" or "No neon"'
             className={inputClass}
           />
         </div>
