@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { FormSkeleton } from '@/components/Skeleton'
 import { uploadEventImage } from '@/lib/uploadImage'
 import ColorRulesPicker, { type ColorRules } from '@/components/ColorRulesPicker'
 
@@ -116,7 +117,7 @@ export default function EventSetupPage() {
   }
 
   if (loading) {
-    return <div className="px-6 py-16 text-center text-stone-muted">Loading...</div>
+    return <FormSkeleton />
   }
 
   return (

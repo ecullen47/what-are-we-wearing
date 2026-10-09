@@ -13,6 +13,9 @@ import SwatchPicker from '@/components/SwatchPicker'
 import ColorWarnings from '@/components/ColorWarnings'
 import PollCard, { type PollOption } from '@/components/PollCard'
 import EventGallery from '@/components/EventGallery'
+import EventBadges from '@/components/EventBadges'
+import { EventPageSkeleton } from '@/components/Skeleton'
+import { toast } from '@/lib/toast'
 
 type EventData = {
   id: string
@@ -117,7 +120,7 @@ export default function EventPage() {
     const load = async () => {
       const { data, error } = await supabase
         .rpc('get_event_by_code', { p_code: code })
-        .single()
+        .maybeSingle()
 
       if (error || !data) {
         setNotFound(true)
@@ -175,6 +178,7 @@ export default function EventPage() {
       }
       // The post is gone, so its photos are now unreferenced and deletable.
       await removeEventImages('outfit-posts', postImageUrls(post))
+      toast('Post deleted')
     }
 
     await loadPosts()
@@ -182,7 +186,12 @@ export default function EventPage() {
 
   const handleVote = async (post: OutfitPost, optionId: string) => {
     setBusyPostId(post.id)
-    await supabase.rpc('vote_on_poll', { p_code: code, p_option_id: optionId, p_voter_token: getGuestToken() })
+    const { error } = await supabase.rpc('vote_on_poll', {
+      p_code: code,
+      p_option_id: optionId,
+      p_voter_token: getGuestToken(),
+    })
+    if (!error) toast(post.my_vote ? 'Vote switched' : 'Vote counted!')
     await loadPosts()
     setBusyPostId(null)
   }
@@ -200,12 +209,22 @@ export default function EventPage() {
     if (!error) {
       // The other options are no longer referenced, so clean them up.
       await removeEventImages('outfit-posts', (otherPhotos as string[] | null) ?? [])
+      toast('Decision made! It’s now your outfit post.')
     }
     await loadPosts()
     setBusyPostId(null)
   }
 
   const handleToggleLike = async (post: OutfitPost) => {
+    // Flip it immediately so the heart responds on tap; the reload below
+    // replaces this with the real count.
+    setPosts((prev) =>
+      prev.map((p) =>
+        p.id === post.id
+          ? { ...p, liked_by_me: !p.liked_by_me, like_count: p.like_count + (p.liked_by_me ? -1 : 1) }
+          : p
+      )
+    )
     setBusyPostId(post.id)
     await supabase.rpc('toggle_outfit_like', { p_code: code, p_post_id: post.id, p_token: getGuestToken() })
     await loadPosts()
@@ -218,7 +237,10 @@ export default function EventPage() {
     const { error } = await supabase
       .from('event_attendance')
       .upsert({ event_id: event.id, user_id: userId }, { onConflict: 'event_id,user_id', ignoreDuplicates: true })
-    if (!error) setIsAttending(true)
+    if (!error) {
+      setIsAttending(true)
+      toast('Added to your events')
+    }
     setJoining(false)
   }
 
@@ -272,6 +294,7 @@ export default function EventPage() {
       }
 
       setEditingPostId(null)
+      toast('Changes saved')
       await loadPosts()
     } catch (err) {
       setEditMessage(`Error: ${err instanceof Error ? err.message : String(err)}`)
@@ -280,15 +303,10 @@ export default function EventPage() {
     }
   }
 
-  useEffect(() => {
-    if (event) {
-      document.title = `${event.name} — What Are We Wearing`
-    }
-  }, [event])
-
   const handleCopyLink = async () => {
     await navigator.clipboard.writeText(window.location.href)
     setCopied(true)
+    toast('Link copied. Send it to your guests!')
     setTimeout(() => setCopied(false), 2000)
   }
 
@@ -299,7 +317,7 @@ export default function EventPage() {
     posts.reduce((n, p) => n + (p.is_poll ? (p.options ?? []).length : 1), 0)
 
   if (loading) {
-    return <div className="px-6 py-16 text-center text-stone-muted">Loading...</div>
+    return <EventPageSkeleton />
   }
 
   if (notFound || !event) {
@@ -321,46 +339,61 @@ export default function EventPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-12">
-      {(isHost || isAttending) && (
-        <div className="flex items-center justify-between gap-3">
-          <Link href="/dashboard" className="text-sm text-terracotta hover:underline">
-            &larr; Back to Dashboard
-          </Link>
-          {isHost && (
+      <header>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <EventBadges type={event.event_type} date={event.event_date} />
+          {isHost ? (
             <Link
               href={`/event/${code}/edit`}
               className="shrink-0 rounded-full border border-terracotta px-4 py-1.5 text-sm font-medium text-terracotta transition-colors hover:bg-terracotta-light"
             >
               Edit Event
             </Link>
-          )}
+          ) : isAttending ? (
+            <span className="text-xs font-medium text-stone-muted">&#10003; In your events</span>
+          ) : userId ? (
+            <button
+              onClick={handleAddToMyEvents}
+              disabled={joining}
+              className="shrink-0 rounded-full border border-terracotta px-4 py-1.5 text-sm font-medium text-terracotta transition-colors hover:bg-terracotta-light disabled:opacity-50"
+            >
+              {joining ? 'Adding...' : '+ Add to my events'}
+            </button>
+          ) : null}
         </div>
-      )}
-      {userId && !isHost && !isAttending && (
-        <button
-          onClick={handleAddToMyEvents}
-          disabled={joining}
-          className="rounded-full border border-terracotta px-4 py-1.5 text-sm font-medium text-terracotta transition-colors hover:bg-terracotta-light disabled:opacity-50"
-        >
-          {joining ? 'Adding...' : '+ Add to my events'}
-        </button>
-      )}
-      {event.host_display_name && (
-        <p className="mt-2 text-sm text-stone-muted">Hosted by {event.host_display_name}</p>
-      )}
-      <h1 className="mt-1 font-display text-4xl text-stone">{event.name}</h1>
 
-      {event.show_invite_code_to_guests && (
-        <p className="mt-2 text-sm text-stone-muted">
-          Invite code: <strong className="text-stone">{event.invite_code}</strong>{' '}
-          <button
-            onClick={handleCopyLink}
-            className="ml-1 rounded-full border border-terracotta px-3 py-1 text-xs font-medium text-terracotta transition-colors hover:bg-terracotta-light"
-          >
-            {copied ? 'Copied!' : 'Copy link to share'}
-          </button>
+        <h1 className="mt-4 font-display text-4xl leading-tight text-stone sm:text-5xl">
+          {event.name?.trim() || 'Untitled event'}
+        </h1>
+        {event.host_display_name && (
+          <p className="mt-2 text-sm text-stone-muted">
+            Hosted by <span className="text-stone">{event.host_display_name}</span>
+          </p>
+        )}
+        <p className="mt-1 text-stone">
+          {formatEventDate(event.event_date)}
+          {event.location ? <> &middot; {event.location}</> : null}
         </p>
-      )}
+
+        {event.dress_code_text && (
+          <div className="mt-5 rounded-xl border border-blush-deep/20 bg-linear-to-br from-blush to-butter/70 px-5 py-4">
+            <p className="text-[11px] font-medium tracking-[0.18em] text-blush-deep uppercase">Dress code</p>
+            <p className="mt-1 font-display text-2xl text-stone">{event.dress_code_text}</p>
+          </div>
+        )}
+
+        {event.show_invite_code_to_guests && (
+          <p className="mt-4 text-sm text-stone-muted">
+            Invite code: <strong className="tracking-wide text-stone">{event.invite_code}</strong>{' '}
+            <button
+              onClick={handleCopyLink}
+              className="ml-1 rounded-full border border-terracotta px-3 py-1 text-xs font-medium text-terracotta transition-colors hover:bg-terracotta-light"
+            >
+              {copied ? 'Copied!' : 'Copy link to share'}
+            </button>
+          </p>
+        )}
+      </header>
 
       {event.inspo_image_urls.length > 0 && (
         <div className="mt-6 grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2">
@@ -380,18 +413,13 @@ export default function EventPage() {
         event.suggested_colors.length > 0 ||
         event.off_limit_colors.length > 0 ||
         event.color_notes) && (
-        <div className="mt-6 space-y-2 rounded-lg border border-stone-line bg-cream-dark/40 p-4">
+        <div className="mt-6 space-y-2 rounded-xl border border-sage-deep/20 bg-sage/60 p-4">
           <ColorSection title="Required" colors={event.required_colors} />
           <ColorSection title="Suggested" colors={event.suggested_colors} />
           <ColorSection title="Off-limit" colors={event.off_limit_colors} />
           {event.color_notes && <p className="text-sm text-stone-muted">{event.color_notes}</p>}
         </div>
       )}
-
-      <p className="mt-6 text-stone">
-        {formatEventDate(event.event_date)} &middot; {event.location}
-      </p>
-      {event.dress_code_text && <p className="mt-1 text-stone-muted">Dress code: {event.dress_code_text}</p>}
 
       <div className="mt-8">
         <OutfitPostForm
@@ -444,6 +472,14 @@ export default function EventPage() {
                 <ColorChip key={id} value={id} count={n} />
               ))}
           </div>
+        </div>
+      )}
+      {posts.length === 0 && (
+        <div className="mt-5 rounded-xl border border-dashed border-stone-line bg-white/60 px-5 py-8 text-center">
+          <p className="font-display text-xl text-stone">No outfits yet</p>
+          <p className="mt-1 text-sm text-stone-muted">
+            Be the first to post what you&apos;re wearing, or post two options and let everyone vote.
+          </p>
         </div>
       )}
       <div className="mt-4 grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-4">
@@ -544,11 +580,17 @@ export default function EventPage() {
                     disabled={busyPostId === post.id}
                     aria-pressed={post.liked_by_me}
                     aria-label={post.liked_by_me ? 'Unlike' : 'Like'}
-                    className={`flex items-center gap-1 text-xs transition-colors disabled:opacity-60 ${
+                    className={`flex items-center gap-1 text-xs transition-colors ${
                       post.liked_by_me ? 'text-terracotta' : 'text-stone-muted hover:text-terracotta'
                     }`}
                   >
-                    <span className="text-sm leading-none">{post.liked_by_me ? '♥' : '♡'}</span>
+                    {/* Keyed on liked state so the pop replays each time you like it. */}
+                    <span
+                      key={post.liked_by_me ? 'liked' : 'unliked'}
+                      className={`inline-block text-sm leading-none ${post.liked_by_me ? 'animate-pop' : ''}`}
+                    >
+                      {post.liked_by_me ? '♥' : '♡'}
+                    </span>
                     {post.like_count > 0 && post.like_count}
                   </button>
                 )}

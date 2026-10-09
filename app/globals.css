@@ -20,6 +20,32 @@
   --color-terracotta: #bc5b3a;
   --color-terracotta-dark: #9e4b2e;
   --color-terracotta-light: #f1ded3;
+
+  /* Soft accent tints (light background + deeper shade for text on it). */
+  --color-blush: #f6dede;
+  --color-blush-deep: #a3505d;
+  --color-sage: #dfe8d9;
+  --color-sage-deep: #56704f;
+  --color-butter: #f7ecc8;
+  --color-butter-deep: #85661a;
+  --color-sky: #dce7f2;
+  --color-sky-deep: #3e5d82;
+  --color-lilac: #e9e0f2;
+  --color-lilac-deep: #6a4f8b;
+
+  --animate-pop: pop 0.35s ease-out;
+  --animate-toast-in: toast-in 0.25s ease-out;
+
+  @keyframes pop {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.4); }
+    100% { transform: scale(1); }
+  }
+
+  @keyframes toast-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
 }
 
 body {
@@ -28,11 +54,12 @@ body {
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
 
-/* body is a column flex container so page content can grow/center
-   vertically; without this, its child hits the flex min-width:auto
-   floor and refuses to shrink below its content's natural width,
-   causing horizontal overflow on narrow viewports. */
-body > * {
+/* body and <main> are column flex containers so page content can
+   grow/center vertically; without this, their children hit the flex
+   min-width:auto floor and refuse to shrink below their content's
+   natural width, causing horizontal overflow on narrow viewports. */
+body > *,
+main > * {
   min-width: 0;
   width: 100%;
 }
