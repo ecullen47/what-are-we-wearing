@@ -26,18 +26,23 @@ export async function generateMetadata({ params }: { params: Promise<{ code: str
   const when = [formatEventDate(event.event_date), event.location].filter(Boolean).join(' · ')
   const description = [
     event.host_display_name ? `Hosted by ${event.host_display_name}.` : "You're invited.",
-    when,
+    when ? `${when}.` : '',
     event.dress_code_text ? `Dress code: ${event.dress_code_text}.` : '',
     "See what everyone's wearing.",
   ]
     .filter(Boolean)
     .join(' ')
 
+  // Setting openGraph here replaces (not merges with) the root's, which
+  // drops the inherited preview image, so point back to it explicitly.
+  const images = ['/opengraph-image']
+
   return {
     title,
     description,
     robots,
-    openGraph: { title, description },
+    openGraph: { title, description, images },
+    twitter: { card: 'summary_large_image', title, description, images },
   }
 }
 

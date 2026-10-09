@@ -120,7 +120,7 @@ export default function EventPage() {
     const load = async () => {
       const { data, error } = await supabase
         .rpc('get_event_by_code', { p_code: code })
-        .single()
+        .maybeSingle()
 
       if (error || !data) {
         setNotFound(true)
