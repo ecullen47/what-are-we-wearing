@@ -36,7 +36,7 @@ const CATEGORIES: { key: Category; label: string; ring: string; badge: React.Rea
 function Badge({ className, children }: { className: string; children: React.ReactNode }) {
   return (
     <span
-      className={`absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold ${className}`}
+      className={`absolute -top-1.5 -right-1.5 flex h-3.5 w-3.5 items-center justify-center rounded-full text-[8px] leading-none font-bold ring-1 ring-cream ${className}`}
     >
       {children}
     </span>
@@ -102,9 +102,11 @@ export default function ColorRulesPicker({
         onToggle={toggle}
         ring={(id) => CATEGORIES.find((c) => c.key === categoryOf(id))?.ring ?? 'ring-terracotta'}
         badge={(id) => CATEGORIES.find((c) => c.key === categoryOf(id))?.badge}
+        showCheck={false}
+        hint={`Tap colors to add them to ${CATEGORIES.find((c) => c.key === active)?.label}.`}
       />
 
-      <div className="mt-4 space-y-2">
+      <div className="mt-2 space-y-2">
         {CATEGORIES.map((c) => (
           <div key={c.key} className="flex flex-wrap items-center gap-1.5 text-sm">
             <span className="w-20 shrink-0 text-xs font-medium text-stone">{c.label}:</span>
