@@ -34,6 +34,22 @@ All parameters are optional and URL-encoded. The host reviews everything before 
 
 Hosts who aren't logged in are sent to log in or sign up first, then brought back to the filled-in page.
 
+## Running the tests
+
+There's no local Supabase, so tests run against the real project as a dedicated **test host account** (a normal account used only for tests). Each run creates its own events named "WAWW automated test" and deletes them afterwards. Leftovers from a crashed run are swept up on the next run.
+
+Add the test account to `.env.local`, next to the Supabase keys:
+
+```
+TEST_HOST_EMAIL=...
+TEST_HOST_PASSWORD=...
+```
+
+- `npm test` runs the database tests (`tests/db`): guest posts, edits and deletes, likes, polls (hidden results, voting, deadlines, auto-close) and permissions.
+- `npm run test:e2e` runs the browser tests (`e2e`) with Playwright. It reuses the dev server on port 3000 if one is running. First time only: `npx playwright install chromium`.
+
+GitHub Actions (`.github/workflows/ci.yml`) runs lint, both test suites and a production build on every pull request and push to `main`. It needs these repository secrets: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `TEST_HOST_EMAIL`, `TEST_HOST_PASSWORD`.
+
 ## Getting Started
 
 First, run the development server:
