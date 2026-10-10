@@ -31,6 +31,25 @@ export function daysUntil(value: string | null | undefined): number | null {
   return Math.round((date.getTime() - today.getTime()) / 86_400_000)
 }
 
+// A deadline in the viewer's local time, e.g. "in 40 minutes", "today at
+// 7:00 PM", "tomorrow at 7:00 PM", or "Sat, Nov 14 at 7:00 PM".
+export function formatDeadline(value: string | Date): string {
+  const when = typeof value === 'string' ? new Date(value) : value
+  const minutes = Math.round((when.getTime() - Date.now()) / 60_000)
+  if (minutes < 1) return 'any moment now'
+  if (minutes < 60) return `in ${minutes} minute${minutes === 1 ? '' : 's'}`
+
+  const time = when.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const day = new Date(when.getFullYear(), when.getMonth(), when.getDate())
+  const days = Math.round((day.getTime() - today.getTime()) / 86_400_000)
+  if (days === 0) return `today at ${time}`
+  if (days === 1) return `tomorrow at ${time}`
+  const date = when.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+  return `${date} at ${time}`
+}
+
 export function countdownLabel(value: string | null | undefined): string | null {
   const days = daysUntil(value)
   if (days === null) return null

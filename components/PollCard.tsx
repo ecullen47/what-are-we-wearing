@@ -1,5 +1,7 @@
 'use client'
 
+import { formatDeadline } from '@/lib/formatDate'
+
 export type PollOption = {
   id: string
   image_url: string
@@ -15,6 +17,7 @@ export default function PollCard({
   options,
   myVote,
   totalVotes,
+  closesAt,
   isMine,
   busy,
   onVote,
@@ -25,6 +28,8 @@ export default function PollCard({
   options: PollOption[]
   myVote: string | null
   totalVotes: number | null
+  // When voting ends and the top option wins automatically.
+  closesAt: string | null
   isMine: boolean
   busy: boolean
   onVote: (optionId: string) => void
@@ -108,6 +113,18 @@ export default function PollCard({
           ? `${totalVotes} vote${totalVotes === 1 ? '' : 's'}${isMine ? ' · pick the one you’re wearing to close the poll' : ''}`
           : 'Vote to see results.'}
       </p>
+      {closesAt && (
+        <p className="mt-1 flex items-center gap-1 text-xs text-stone-muted">
+          <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 shrink-0" aria-hidden="true">
+            <circle cx="8" cy="8" r="6.25" fill="none" stroke="currentColor" strokeWidth="1.5" />
+            <path d="M8 4.75V8l2.25 1.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+          <span>
+            Voting closes {formatDeadline(closesAt)}.{' '}
+            {isMine ? 'If you haven’t picked by then, the top vote wins.' : 'Then the top vote wins.'}
+          </span>
+        </p>
+      )}
     </div>
   )
 }

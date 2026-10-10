@@ -8,6 +8,7 @@ import SwatchPicker from '@/components/SwatchPicker'
 import ColorWarnings, { offLimitMatches } from '@/components/ColorWarnings'
 import PhotoViewer from '@/components/PhotoViewer'
 import { toast } from '@/lib/toast'
+import { formatDeadline } from '@/lib/formatDate'
 
 type Props = {
   eventId: string
@@ -20,7 +21,41 @@ type Props = {
   hostName: string | null
   // Guest's name passed in the invite link (?name=), used as a prefill.
   nameFromLink: string | null
+  eventDate: string | null
   onPosted: () => void
+}
+
+const HOUR = 3_600_000
+
+// Mirrors poll_default_close in the database: midnight UTC at the start of
+// the event day (the evening before, for US guests), but at least 3 hours
+// away. Only used to label the default; the server sets the real value.
+function defaultPollClose(eventDate: string | null): Date {
+  const match = eventDate && /^(\d{4})-(\d{2})-(\d{2})/.exec(eventDate)
+  const now = new Date()
+  const eventStart = match
+    ? Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+    : Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)
+  return new Date(Math.max(eventStart, now.getTime() + 3 * HOUR))
+}
+
+// Shorter voting windows a poster can pick instead of the default.
+const DEADLINE_CHOICES = [
+  { value: '3h', label: 'In 3 hours', ms: 3 * HOUR },
+  { value: '24h', label: 'In 24 hours', ms: 24 * HOUR },
+  { value: '3d', label: 'In 3 days', ms: 72 * HOUR },
+]
+
+type DeadlineOptions = { defaultLabel: string; choices: typeof DEADLINE_CHOICES }
+
+// Reads the clock, so it's called when poll mode opens rather than during
+// render. Only offers windows that end before the default deadline.
+function pollDeadlineOptions(eventDate: string | null): DeadlineOptions {
+  const byDefault = defaultPollClose(eventDate)
+  return {
+    defaultLabel: formatDeadline(byDefault),
+    choices: DEADLINE_CHOICES.filter((c) => Date.now() + c.ms < byDefault.getTime()),
+  }
 }
 
 // A chosen photo plus a local URL for previewing it before upload.
@@ -47,6 +82,7 @@ export default function OutfitPostForm({
   inspoUrls,
   hostName,
   nameFromLink,
+  eventDate,
   onPosted,
 }: Props) {
   const [mode, setMode] = useState<'outfit' | 'poll'>('outfit')
@@ -57,6 +93,9 @@ export default function OutfitPostForm({
   // is open full size.
   const [compareIndex, setCompareIndex] = useState(0)
   const [viewing, setViewing] = useState<number | null>(null)
+  // 'default' or one of DEADLINE_CHOICES.
+  const [deadline, setDeadline] = useState('default')
+  const [deadlineOptions, setDeadlineOptions] = useState<DeadlineOptions | null>(null)
   const [caption, setCaption] = useState('')
   const [colors, setColors] = useState<string[]>([])
   const [message, setMessage] = useState('')
@@ -93,6 +132,9 @@ export default function OutfitPostForm({
     try {
       setGuestName(eventId, name.trim())
 
+      const choice = DEADLINE_CHOICES.find((c) => c.value === deadline)
+      const closesAt = choice ? new Date(Date.now() + choice.ms) : null
+
       const imageUrls: string[] = []
       for (const f of pollFiles) {
         imageUrls.push(await uploadEventImage('outfit-posts', eventId, f))
@@ -104,6 +146,8 @@ export default function OutfitPostForm({
         p_guest_token: getGuestToken(),
         p_image_urls: imageUrls,
         p_caption: caption.trim() || null,
+        // null lets the server apply its default (the evening before).
+        p_closes_at: closesAt ? closesAt.toISOString() : null,
       })
 
       if (error) {
@@ -116,6 +160,7 @@ export default function OutfitPostForm({
       if (postId) addMyPostId(eventId, postId)
 
       choosePollOptions([])
+      setDeadline('default')
       setFileInputKey((k) => k + 1)
       setCaption('')
       setMode('outfit')
@@ -189,6 +234,10 @@ export default function OutfitPostForm({
       <button
         type="button"
         onClick={() => {
+          if (mode === 'outfit') {
+            setDeadlineOptions(pollDeadlineOptions(eventDate))
+            setDeadline('default')
+          }
           setMode(mode === 'poll' ? 'outfit' : 'poll')
           setMessage('')
         }}
@@ -343,6 +392,29 @@ export default function OutfitPostForm({
           placeholder={mode === 'poll' ? 'Question (optional), e.g. "Which for the ceremony?"' : 'Caption (optional)'}
           className={inputClass}
         />
+        {mode === 'poll' && (
+          <div>
+            <label htmlFor="poll-deadline" className="mb-1 block text-sm font-medium text-stone">
+              Voting closes
+            </label>
+            <select
+              id="poll-deadline"
+              value={deadline}
+              onChange={(e) => setDeadline(e.target.value)}
+              className={inputClass}
+            >
+              <option value="default">Before the event ({deadlineOptions?.defaultLabel})</option>
+              {deadlineOptions?.choices.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-stone-muted">
+              Pick your outfit any time before then. If you don&apos;t, the top vote wins.
+            </p>
+          </div>
+        )}
         {mode === 'outfit' && (
           <div>
             <p className="mb-2 text-sm font-medium text-stone">
