@@ -3,25 +3,33 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import { safeNextPath } from '@/lib/createPrefill'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [message, setMessage] = useState('')
+  // Where to go after logging in, e.g. back to a prefilled create page.
+  const [next, setNext] = useState<string | null>(null)
   const router = useRouter()
 
   // Already logged in (e.g. via the homepage's "Create an Event" button):
-  // skip the form and go straight to the dashboard.
+  // skip the form and go straight on.
   useEffect(() => {
+    const target = safeNextPath(new URLSearchParams(window.location.search).get('next'))
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) router.replace('/dashboard')
+      if (data.session) router.replace(target ?? '/dashboard')
+      else setNext(target)
     })
   }, [router])
 
   const handleSignUp = async () => {
-    const { error } = await supabase.auth.signUp({ email, password })
+    const { data, error } = await supabase.auth.signUp({ email, password })
     if (error) {
       setMessage(`Error: ${error.message}`)
+    } else if (data.session) {
+      // No email confirmation required, so they're already logged in.
+      router.push(next ?? '/dashboard')
     } else {
       setMessage('Signed up! Check your email if confirmation is required, or try logging in.')
     }
@@ -32,7 +40,7 @@ export default function LoginPage() {
     if (error) {
       setMessage(`Error: ${error.message}`)
     } else {
-      router.push('/dashboard')
+      router.push(next ?? '/dashboard')
     }
   }
 
@@ -56,7 +64,11 @@ export default function LoginPage() {
   return (
     <div className="mx-auto flex max-w-sm flex-1 flex-col justify-center px-6 py-16">
       <h1 className="font-display text-3xl text-stone">Sign Up / Log In</h1>
-      <p className="mt-2 text-sm text-stone-muted">Hosts need an account &mdash; guests never do.</p>
+      <p className="mt-2 text-sm text-stone-muted">
+        {next?.startsWith('/create-event')
+          ? 'Log in or sign up to finish creating your event. Your details will be waiting.'
+          : <>Hosts need an account &mdash; guests never do.</>}
+      </p>
 
       <input
         type="email"

@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { readCreatePrefill } from '@/lib/createPrefill'
 
 // No 0/O or 1/I/L, so codes are easy to read aloud and type from a text.
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
@@ -41,7 +42,37 @@ export default function CreateEventPage() {
   const [errors, setErrors] = useState<FieldErrors>({})
   const [message, setMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  // True when another platform's link filled in some details.
+  const [prefilled, setPrefilled] = useState(false)
   const router = useRouter()
+
+  useEffect(() => {
+    let cancelled = false
+    const apply = async () => {
+      // Hosts need an account; send them to log in first and bring them
+      // straight back here with the same details.
+      const { data } = await supabase.auth.getSession()
+      if (cancelled) return
+      if (!data.session) {
+        const here = `${window.location.pathname}${window.location.search}`
+        router.replace(`/login?next=${encodeURIComponent(here)}`)
+        return
+      }
+
+      const prefill = readCreatePrefill(window.location.search)
+      if (prefill.hostDisplayName) setHostDisplayName(prefill.hostDisplayName)
+      if (prefill.name) setName(prefill.name)
+      if (prefill.eventDate) setEventDate(prefill.eventDate)
+      if (prefill.location) setLocation(prefill.location)
+      if (prefill.eventType) setEventType(prefill.eventType)
+      if (prefill.dressCode) setDressCode(prefill.dressCode)
+      setPrefilled(Object.keys(prefill).length > 0)
+    }
+    apply()
+    return () => {
+      cancelled = true
+    }
+  }, [router])
 
   const validate = (): FieldErrors => {
     const next: FieldErrors = {}
@@ -117,6 +148,11 @@ export default function CreateEventPage() {
         &larr; Back to Dashboard
       </Link>
       <h1 className="mt-3 font-display text-3xl text-stone">Create an Event</h1>
+      {prefilled && (
+        <p className="mt-3 rounded-lg border border-sage-deep/20 bg-sage/60 px-4 py-3 text-sm text-stone">
+          We filled in what we could from your invite. Check it over, add anything missing, and you&apos;re set.
+        </p>
+      )}
 
       <form
         noValidate
