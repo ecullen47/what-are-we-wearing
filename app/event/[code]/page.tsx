@@ -68,6 +68,9 @@ function countColors(posts: OutfitPost[], excludeId?: string): Map<string, numbe
   return counts
 }
 
+// Matches the display_name length check on outfit_posts.
+const MAX_NAME_LENGTH = 100
+
 const inputClass =
   'block w-full rounded-md border border-stone-line bg-white px-3 py-2 text-sm text-stone placeholder:text-stone-muted focus:border-terracotta focus:outline-none'
 
@@ -106,6 +109,7 @@ export default function EventPage() {
   // The outfit feed (post, vote, like, edit) or the photo gallery.
   const [view, setView] = useState<'feed' | 'gallery'>('feed')
   const [inspoOpen, setInspoOpen] = useState<number | null>(null)
+  const [nameFromLink, setNameFromLink] = useState<string | null>(null)
   // Post currently being voted on / liked / resolved, to disable its buttons.
   const [busyPostId, setBusyPostId] = useState<string | null>(null)
 
@@ -165,6 +169,23 @@ export default function EventPage() {
       }
 
       const eventData = data as EventData
+
+      // Platforms that send guests here can pass ?name= to prefill the
+      // post form. Drop it from the address bar afterwards, so a reload or
+      // a copy of this URL doesn't carry someone's name along.
+      const params = new URLSearchParams(window.location.search)
+      const linkName = params.get('name')?.trim().slice(0, MAX_NAME_LENGTH)
+      if (linkName) setNameFromLink(linkName)
+      if (params.has('name')) {
+        params.delete('name')
+        const query = params.toString()
+        window.history.replaceState(
+          null,
+          '',
+          `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`
+        )
+      }
+
       setEvent(eventData)
       setMyPostIds(getMyPostIds(eventData.id))
       await loadPosts()
@@ -194,6 +215,16 @@ export default function EventPage() {
 
     load()
   }, [code, loadPosts])
+
+  // Links ending in #post jump straight to the post form. The browser
+  // can't do that itself because the form only renders once the event has
+  // loaded.
+  useEffect(() => {
+    if (loading || window.location.hash !== '#post') return
+    // Instant rather than smooth: a smooth scroll can be cut short by the
+    // page still settling right after load.
+    document.getElementById('post')?.scrollIntoView({ block: 'start' })
+  }, [loading])
 
   const handleDelete = async (post: OutfitPost) => {
     if (!event) return
@@ -489,7 +520,7 @@ export default function EventPage() {
         </div>
       )}
 
-      <div className="mt-8">
+      <div id="post" className="mt-8 scroll-mt-6">
         <OutfitPostForm
           eventId={event.id}
           inviteCode={event.invite_code}
@@ -498,6 +529,7 @@ export default function EventPage() {
           takenCounts={colorCounts}
           inspoUrls={event.inspo_image_urls}
           hostName={event.host_display_name}
+          nameFromLink={nameFromLink}
           onPosted={() => {
             // The form just recorded the new post as ours; re-read so its
             // Edit/Delete buttons show without a reload.

@@ -1,5 +1,18 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Linking guests to an event
+
+Other platforms (invite and RSVP tools) can send guests straight to an event:
+
+```
+https://what-are-we-wearing-nu.vercel.app/event/<INVITE_CODE>?name=<Guest Name>#post
+```
+
+- `name` (optional) prefills the guest's name in the post form (URL-encode it, max 100 characters). It's only a suggestion that the guest can change. If they've already used a name for this event on that device, that name is kept instead. The parameter is removed from the address bar once read.
+- `#post` (optional) scrolls straight to "Post Your Outfit".
+
+Guests don't need an account. Names are remembered per event, with the last name used offered as the default for new events.
+
 ## Getting Started
 
 First, run the development server:
