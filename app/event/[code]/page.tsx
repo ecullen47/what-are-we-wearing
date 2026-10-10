@@ -13,6 +13,7 @@ import SwatchPicker from '@/components/SwatchPicker'
 import ColorWarnings from '@/components/ColorWarnings'
 import PollCard, { type PollOption } from '@/components/PollCard'
 import EventGallery from '@/components/EventGallery'
+import PhotoViewer from '@/components/PhotoViewer'
 import EventBadges from '@/components/EventBadges'
 import { EventPageSkeleton } from '@/components/Skeleton'
 import { toast } from '@/lib/toast'
@@ -103,6 +104,7 @@ export default function EventPage() {
   const [copied, setCopied] = useState(false)
   // The outfit feed (post, vote, like, edit) or the photo gallery.
   const [view, setView] = useState<'feed' | 'gallery'>('feed')
+  const [inspoOpen, setInspoOpen] = useState<number | null>(null)
   // Post currently being voted on / liked / resolved, to disable its buttons.
   const [busyPostId, setBusyPostId] = useState<string | null>(null)
 
@@ -397,16 +399,37 @@ export default function EventPage() {
 
       {event.inspo_image_urls.length > 0 && (
         <div className="mt-6 grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2">
-          {event.inspo_image_urls.map((url) => (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+          {event.inspo_image_urls.map((url, i) => (
+            <button
               key={url}
-              src={url}
-              alt="Event inspiration"
-              className="aspect-square w-full rounded-lg object-cover"
-            />
+              onClick={() => setInspoOpen(i)}
+              aria-label={`View inspo photo ${i + 1} full size`}
+              className="group overflow-hidden rounded-lg"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={url}
+                alt="Event inspiration"
+                className="aspect-square w-full object-cover transition-transform group-hover:scale-[1.03]"
+              />
+            </button>
           ))}
         </div>
+      )}
+      {inspoOpen !== null && (
+        <PhotoViewer
+          photos={event.inspo_image_urls.map((url) => ({
+            key: url,
+            url,
+            alt: 'Event inspiration',
+            caption: (
+              <p>Inspo{event.host_display_name ? <> from <strong>{event.host_display_name}</strong></> : null}</p>
+            ),
+          }))}
+          index={inspoOpen}
+          onIndexChange={setInspoOpen}
+          onClose={() => setInspoOpen(null)}
+        />
       )}
 
       {(event.required_colors.length > 0 ||
@@ -428,6 +451,8 @@ export default function EventPage() {
           requiredColors={event.required_colors}
           offLimitColors={event.off_limit_colors}
           takenCounts={colorCounts}
+          inspoUrls={event.inspo_image_urls}
+          hostName={event.host_display_name}
           onPosted={() => {
             // The form just recorded the new post as ours; re-read so its
             // Edit/Delete buttons show without a reload.

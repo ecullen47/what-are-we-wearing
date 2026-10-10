@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import ColorChip, { SwatchDot } from '@/components/ColorChip'
+import PhotoViewer from '@/components/PhotoViewer'
 
 // Just the fields the gallery needs from an event's posts.
 export type GalleryPost = {
@@ -95,30 +96,6 @@ export default function EventGallery({
       (!color || item.colors.includes(color))
   )
 
-  const open = openIndex !== null ? visible[openIndex] : null
-  const step = (delta: number) =>
-    setOpenIndex((i) => (i === null ? i : (i + delta + visible.length) % visible.length))
-
-  // Keyboard navigation and no background scrolling while the viewer is open.
-  useEffect(() => {
-    if (openIndex === null) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpenIndex(null)
-      if (e.key === 'ArrowRight') step(1)
-      if (e.key === 'ArrowLeft') step(-1)
-    }
-    window.addEventListener('keydown', onKey)
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => {
-      window.removeEventListener('keydown', onKey)
-      document.body.style.overflow = previousOverflow
-    }
-    // step only depends on visible.length, which can't change while open
-    // because the filters sit behind the viewer.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openIndex])
-
   if (items.length === 0) {
     return <p className="mt-4 text-sm text-stone-muted">No photos yet. Inspo and outfits will show up here.</p>
   }
@@ -187,75 +164,33 @@ export default function EventGallery({
         </div>
       )}
 
-      {open && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Photo viewer"
-          onClick={() => setOpenIndex(null)}
-          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-stone/90 p-4"
-        >
-          <button
-            onClick={() => setOpenIndex(null)}
-            aria-label="Close"
-            className="absolute top-3 right-3 flex h-10 w-10 items-center justify-center rounded-full bg-cream/15 text-2xl text-cream hover:bg-cream/25"
-          >
-            &times;
-          </button>
-
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={open.url}
-            alt={`${KIND_LABEL[open.kind]}: ${open.title}`}
-            onClick={(e) => e.stopPropagation()}
-            className="max-h-[75vh] max-w-full rounded-lg object-contain"
-          />
-
-          <div onClick={(e) => e.stopPropagation()} className="mt-3 max-w-md text-center text-sm text-cream">
-            <p>
-              <span className="text-cream/70">{KIND_LABEL[open.kind]} &middot; </span>
-              <strong>{open.title}</strong>
-              {open.detail && <span className="text-cream/80"> — {open.detail}</span>}
-            </p>
-            {open.colors.length > 0 && (
-              <div className="mt-1.5 flex justify-center gap-1">
-                {open.colors.map((c) => (
-                  <SwatchDot key={c} value={c} size="h-4 w-4" />
-                ))}
-              </div>
-            )}
-            {visible.length > 1 && (
-              <p className="mt-1 text-xs text-cream/60">
-                {openIndex! + 1} / {visible.length}
-              </p>
-            )}
-          </div>
-
-          {visible.length > 1 && (
-            <>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  step(-1)
-                }}
-                aria-label="Previous photo"
-                className="absolute top-1/2 left-2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-cream/15 text-2xl text-cream hover:bg-cream/25"
-              >
-                &lsaquo;
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  step(1)
-                }}
-                aria-label="Next photo"
-                className="absolute top-1/2 right-2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-cream/15 text-2xl text-cream hover:bg-cream/25"
-              >
-                &rsaquo;
-              </button>
-            </>
-          )}
-        </div>
+      {openIndex !== null && (
+        <PhotoViewer
+          photos={visible.map((item) => ({
+            key: item.key,
+            url: item.url,
+            alt: `${KIND_LABEL[item.kind]}: ${item.title}`,
+            caption: (
+              <>
+                <p>
+                  <span className="text-cream/70">{KIND_LABEL[item.kind]} &middot; </span>
+                  <strong>{item.title}</strong>
+                  {item.detail && <span className="text-cream/80"> — {item.detail}</span>}
+                </p>
+                {item.colors.length > 0 && (
+                  <div className="mt-1.5 flex justify-center gap-1">
+                    {item.colors.map((c) => (
+                      <SwatchDot key={c} value={c} size="h-4 w-4" />
+                    ))}
+                  </div>
+                )}
+              </>
+            ),
+          }))}
+          index={openIndex}
+          onIndexChange={setOpenIndex}
+          onClose={() => setOpenIndex(null)}
+        />
       )}
     </div>
   )
