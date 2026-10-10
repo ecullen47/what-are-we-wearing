@@ -50,6 +50,7 @@ type OutfitPost = {
   options: PollOption[] | null
   my_vote: string | null
   total_votes: number | null
+  poll_closes_at: string | null
 }
 
 // Every stored photo a post uses (a poll has one per option).
@@ -155,6 +156,33 @@ export default function EventPage() {
   }, [code, loadPosts])
 
   const announceChange = useEventLive(event?.id, handleRemoteChange)
+
+  // When the next poll deadline passes (or has already passed on load),
+  // ask the server to close due polls: the top vote becomes that guest's
+  // outfit. Anyone viewing can trigger it; the server only acts on polls
+  // that really are past their deadline.
+  useEffect(() => {
+    const deadlines = posts
+      .filter((p) => p.is_poll && p.poll_closes_at)
+      .map((p) => Date.parse(p.poll_closes_at!))
+    if (deadlines.length === 0) return
+    const wait = Math.max(0, Math.min(...deadlines) - Date.now())
+    const timer = setTimeout(
+      async () => {
+        const { data, error } = await supabase.rpc('close_due_polls', { p_code: code })
+        const losers = (data as string[] | null) ?? []
+        // Nothing closed means the server's clock disagrees with ours; the
+        // next refresh will try again rather than looping here.
+        if (error || losers.length === 0) return
+        await removeEventImages('outfit-posts', losers)
+        await loadPosts()
+        announceChange()
+      },
+      // A second of slack for clock drift; setTimeout caps out near 24 days.
+      Math.min(wait + (wait > 0 ? 1000 : 0), 2_000_000_000)
+    )
+    return () => clearTimeout(timer)
+  }, [posts, code, loadPosts, announceChange])
 
   useEffect(() => {
     const load = async () => {
@@ -530,6 +558,7 @@ export default function EventPage() {
           inspoUrls={event.inspo_image_urls}
           hostName={event.host_display_name}
           nameFromLink={nameFromLink}
+          eventDate={event.event_date}
           onPosted={() => {
             // The form just recorded the new post as ours; re-read so its
             // Edit/Delete buttons show without a reload.
@@ -650,6 +679,7 @@ export default function EventPage() {
                   options={post.options ?? []}
                   myVote={post.my_vote}
                   totalVotes={post.total_votes}
+                  closesAt={post.poll_closes_at}
                   isMine={myPostIds.includes(post.id)}
                   busy={busyPostId === post.id}
                   onVote={(optionId) => handleVote(post, optionId)}
