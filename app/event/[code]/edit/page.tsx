@@ -8,6 +8,7 @@ import { FormSkeleton } from '@/components/Skeleton'
 import { listEventFiles, removeEventImages, uploadEventImage } from '@/lib/uploadImage'
 import { toPaletteId } from '@/lib/palette'
 import ColorRulesPicker, { type ColorRules } from '@/components/ColorRulesPicker'
+import { announceEventChange } from '@/lib/eventLive'
 
 type EventRow = {
   id: string
@@ -181,6 +182,8 @@ export default function EditEventPage() {
         (event.inspo_image_urls ?? []).filter((url) => !keptInspo.includes(url))
       )
 
+      // Guests with the event open pick up the new details right away.
+      await announceEventChange(event.id)
       router.push(`/event/${code}`)
     } catch (err) {
       setMessage(`Error: ${err instanceof Error ? err.message : String(err)}`)
@@ -221,6 +224,7 @@ export default function EditEventPage() {
       await supabase.storage.from('outfit-posts').remove(outfitPaths)
     }
 
+    await announceEventChange(event.id)
     router.push('/dashboard')
   }
 
