@@ -13,6 +13,27 @@ https://what-are-we-wearing-nu.vercel.app/event/<INVITE_CODE>?name=<Guest Name>#
 
 Guests don't need an account. Names are remembered per event, with the last name used offered as the default for new events.
 
+## Linking hosts to create an event
+
+Platforms can also send a host to a create page that's already filled in:
+
+```
+https://what-are-we-wearing-nu.vercel.app/create-event?name=Maya's%2030th&date=2026-11-14&location=Brooklyn&type=party&dress=Cocktail&host=Maya
+```
+
+All parameters are optional and URL-encoded. The host reviews everything before saving.
+
+| Param | Fills in | Notes |
+| --- | --- | --- |
+| `name` | Event name | max 200 chars |
+| `date` | Date | `YYYY-MM-DD` or a full ISO timestamp; invalid dates are left blank |
+| `location` | Location | max 200 chars |
+| `type` | Event type | `wedding`, `dinner`, `party`, `other`; common types like `birthday` or `brunch` are mapped, anything else becomes `other` |
+| `dress` | Dress code | max 200 chars |
+| `host` | Host's display name | max 100 chars |
+
+Hosts who aren't logged in are sent to log in or sign up first, then brought back to the filled-in page.
+
 ## Getting Started
 
 First, run the development server:
