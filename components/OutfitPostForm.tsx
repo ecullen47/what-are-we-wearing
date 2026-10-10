@@ -18,6 +18,8 @@ type Props = {
   takenCounts: Map<string, number>
   inspoUrls: string[]
   hostName: string | null
+  // Guest's name passed in the invite link (?name=), used as a prefill.
+  nameFromLink: string | null
   onPosted: () => void
 }
 
@@ -44,10 +46,11 @@ export default function OutfitPostForm({
   takenCounts,
   inspoUrls,
   hostName,
+  nameFromLink,
   onPosted,
 }: Props) {
   const [mode, setMode] = useState<'outfit' | 'poll'>('outfit')
-  const [name, setName] = useState(() => getGuestName() ?? '')
+  const [name, setName] = useState(() => getGuestName(eventId, nameFromLink))
   const [outfit, setOutfit] = useState<Picked | null>(null)
   const [pollPicks, setPollPicks] = useState<Picked[]>([])
   // Which inspo photo sits beside the guest's photo, and which (if any)
@@ -88,7 +91,7 @@ export default function OutfitPostForm({
     setMessage('')
 
     try {
-      setGuestName(name.trim())
+      setGuestName(eventId, name.trim())
 
       const imageUrls: string[] = []
       for (const f of pollFiles) {
@@ -141,7 +144,7 @@ export default function OutfitPostForm({
     setMessage('')
 
     try {
-      setGuestName(name.trim())
+      setGuestName(eventId, name.trim())
 
       const imageUrl = await uploadEventImage('outfit-posts', eventId, outfit.file)
 
