@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
@@ -17,6 +17,7 @@ import PhotoViewer from '@/components/PhotoViewer'
 import EventBadges from '@/components/EventBadges'
 import { EventPageSkeleton } from '@/components/Skeleton'
 import { toast } from '@/lib/toast'
+import { useEventLive } from '@/lib/eventLive'
 
 type EventData = {
   id: string
@@ -110,13 +111,46 @@ export default function EventPage() {
 
   // The viewer token lets the server mark our own votes/likes and decide
   // whether we've earned the right to see poll results.
-  const loadPosts = useCallback(async () => {
+  const loadPosts = useCallback(async (): Promise<OutfitPost[]> => {
     const { data } = await supabase.rpc('get_outfit_posts_by_code', {
       p_code: code,
       p_viewer_token: getGuestToken(),
     })
-    setPosts(data ?? [])
+    const fresh: OutfitPost[] = data ?? []
+    setPosts(fresh)
+    return fresh
   }, [code])
+
+  // Posts we've already shown, so a live refresh can say what's new.
+  const knownPostIds = useRef<Set<string>>(new Set())
+  useEffect(() => {
+    knownPostIds.current = new Set(posts.map((p) => p.id))
+  }, [posts])
+
+  // Someone else posted, voted, liked, edited, or the host changed the
+  // event: re-fetch both, and give a heads-up about new posts.
+  const handleRemoteChange = useCallback(async () => {
+    const known = knownPostIds.current
+    const [{ data: eventData }, fresh] = await Promise.all([
+      supabase.rpc('get_event_by_code', { p_code: code }).maybeSingle(),
+      loadPosts(),
+    ])
+    if (!eventData) {
+      setNotFound(true)
+      return
+    }
+    setEvent(eventData as EventData)
+
+    const mine = new Set(getMyPostIds((eventData as EventData).id))
+    const added = fresh.filter((p) => !known.has(p.id) && !mine.has(p.id))
+    if (added.length === 1) {
+      toast(`${added[0].display_name} just posted ${added[0].is_poll ? 'a poll' : 'an outfit'}`)
+    } else if (added.length > 1) {
+      toast(`${added.length} new posts`)
+    }
+  }, [code, loadPosts])
+
+  const announceChange = useEventLive(event?.id, handleRemoteChange)
 
   useEffect(() => {
     const load = async () => {
@@ -181,6 +215,7 @@ export default function EventPage() {
       // The post is gone, so its photos are now unreferenced and deletable.
       await removeEventImages('outfit-posts', postImageUrls(post))
       toast('Post deleted')
+      announceChange()
     }
 
     await loadPosts()
@@ -193,7 +228,10 @@ export default function EventPage() {
       p_option_id: optionId,
       p_voter_token: getGuestToken(),
     })
-    if (!error) toast(post.my_vote ? 'Vote switched' : 'Vote counted!')
+    if (!error) {
+      toast(post.my_vote ? 'Vote switched' : 'Vote counted!')
+      announceChange()
+    }
     await loadPosts()
     setBusyPostId(null)
   }
@@ -212,6 +250,7 @@ export default function EventPage() {
       // The other options are no longer referenced, so clean them up.
       await removeEventImages('outfit-posts', (otherPhotos as string[] | null) ?? [])
       toast('Decision made! It’s now your outfit post.')
+      announceChange()
     }
     await loadPosts()
     setBusyPostId(null)
@@ -228,7 +267,12 @@ export default function EventPage() {
       )
     )
     setBusyPostId(post.id)
-    await supabase.rpc('toggle_outfit_like', { p_code: code, p_post_id: post.id, p_token: getGuestToken() })
+    const { error } = await supabase.rpc('toggle_outfit_like', {
+      p_code: code,
+      p_post_id: post.id,
+      p_token: getGuestToken(),
+    })
+    if (!error) announceChange()
     await loadPosts()
     setBusyPostId(null)
   }
@@ -297,6 +341,7 @@ export default function EventPage() {
 
       setEditingPostId(null)
       toast('Changes saved')
+      announceChange()
       await loadPosts()
     } catch (err) {
       setEditMessage(`Error: ${err instanceof Error ? err.message : String(err)}`)
@@ -458,6 +503,7 @@ export default function EventPage() {
             // Edit/Delete buttons show without a reload.
             setMyPostIds(getMyPostIds(event.id))
             loadPosts()
+            announceChange()
           }}
         />
       </div>
