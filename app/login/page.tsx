@@ -67,7 +67,9 @@ export default function LoginPage() {
       <p className="mt-2 text-sm text-stone-muted">
         {next?.startsWith('/create-event')
           ? 'Log in or sign up to finish creating your event. Your details will be waiting.'
-          : <>Hosts need an account &mdash; guests never do.</>}
+          : next?.startsWith('/cohost/')
+            ? 'Log in or sign up, then you can join as a co-host.'
+            : <>Hosts need an account &mdash; guests never do.</>}
       </p>
 
       <input

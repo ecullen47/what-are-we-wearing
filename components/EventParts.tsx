@@ -18,15 +18,16 @@ export type EventPart = {
 export default function EventParts({
   parts,
   parentCode,
-  isHost,
+  canAdd,
 }: {
   parts: EventPart[]
   parentCode: string
-  isHost: boolean
+  // The event's owner (not co-hosts) can add parts.
+  canAdd: boolean
 }) {
   // Until it has parts, hosts just get a quiet way to start adding them.
   if (parts.length === 0) {
-    if (!isHost) return null
+    if (!canAdd) return null
     return (
       <p className="mt-4 text-sm text-stone-muted">
         A weekend of events?{' '}
@@ -74,7 +75,7 @@ export default function EventParts({
           </Link>
         ))}
       </div>
-      {isHost && (
+      {canAdd && (
         <Link
           href={`/create-event?part_of=${parentCode}`}
           className="mt-3 inline-block rounded-full border border-terracotta px-4 py-1.5 text-sm font-medium text-terracotta transition-colors hover:bg-terracotta-light"

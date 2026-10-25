@@ -48,7 +48,8 @@ export default function EventSetupPage() {
         .eq('invite_code', code)
         .single()
 
-      if (error || !data || !user || data.host_id !== user.id) {
+      // Only hosts and co-hosts can read the event row.
+      if (error || !data || !user) {
         router.push(`/event/${code}`)
         return
       }

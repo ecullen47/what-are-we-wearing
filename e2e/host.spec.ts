@@ -2,6 +2,9 @@ import { test, expect } from './fixtures'
 import { TEST_EVENT_NAME, daysFromToday, deleteTestEvent } from '../tests/helpers'
 
 test('a host from a platform link logs in and creates the prefilled event', async ({ page, host }) => {
+  // Logs in and creates an event through the form, so it runs long when
+  // the whole suite shares one dev server.
+  test.slow()
   const date = daysFromToday(30)
   const params = new URLSearchParams({
     name: TEST_EVENT_NAME,
