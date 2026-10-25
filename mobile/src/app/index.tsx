@@ -3,7 +3,8 @@ import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text
 import { useFocusEffect, useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Body, Button, Card, Heading, Label, styles as ui } from '@/components/ui'
-import { getRecentEvents, type RecentEvent } from '@/lib/guestIdentity'
+import { forgetEvent, getRecentEvents, type RecentEvent } from '@/lib/guestIdentity'
+import { confirm } from '@/lib/confirm'
 import { getEvent, normalizeCode } from '@/lib/api'
 import { countdownLabel, eventTypeLabel, formatEventDate } from '@/lib/shared'
 import { colors, eventTypeTint, fonts } from '@/theme'
@@ -22,6 +23,13 @@ export default function Home() {
       setRecent(getRecentEvents())
     }, [])
   )
+
+  // Only takes it off this phone's list; the event itself is untouched.
+  const remove = async (e: RecentEvent) => {
+    if (!(await confirm(`Remove ${e.name}?`, 'It comes off this list. You can open it again with its code.', 'Remove'))) return
+    forgetEvent(e.code)
+    setRecent(getRecentEvents())
+  }
 
   const open = async () => {
     const normalized = normalizeCode(code)
@@ -80,7 +88,10 @@ export default function Home() {
 
           {recent.length > 0 && (
             <View style={styles.recent}>
-              <Label style={{ marginBottom: 10 }}>Your events</Label>
+              <View style={styles.recentHeading}>
+                <Label>Your events</Label>
+                <Body muted style={styles.recentHint}>Press and hold to remove</Body>
+              </View>
               {recent.map((e) => {
                 const tint = eventTypeTint(e.eventType)
                 const countdown = countdownLabel(e.eventDate)
@@ -88,8 +99,11 @@ export default function Home() {
                   <Pressable
                     key={e.code}
                     onPress={() => router.push({ pathname: '/event/[code]', params: { code: e.code } })}
+                    onLongPress={() => remove(e)}
                     accessibilityRole="button"
                     accessibilityLabel={`Open ${e.name}`}
+                    accessibilityActions={[{ name: 'remove', label: 'Remove from your events' }]}
+                    onAccessibilityAction={(a) => a.nativeEvent.actionName === 'remove' && remove(e)}
                     style={({ pressed }) => [styles.recentRow, pressed && { backgroundColor: colors.creamDark }]}
                   >
                     <View style={[styles.recentTint, { backgroundColor: tint.bg }]}>
@@ -124,6 +138,8 @@ const styles = StyleSheet.create({
   codeInput: { fontFamily: fonts.sansBold, fontSize: 20, letterSpacing: 4, textAlign: 'center' },
   message: { color: colors.terracottaDark, fontSize: 14 },
   recent: { marginTop: 32 },
+  recentHeading: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 },
+  recentHint: { fontSize: 12 },
   recentRow: {
     flexDirection: 'row',
     alignItems: 'center',

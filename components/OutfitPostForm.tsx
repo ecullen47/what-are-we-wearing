@@ -8,7 +8,13 @@ import SwatchPicker from '@/components/SwatchPicker'
 import ColorWarnings, { offLimitMatches } from '@/components/ColorWarnings'
 import PhotoViewer from '@/components/PhotoViewer'
 import { toast } from '@/lib/toast'
-import { formatDeadline } from '@/lib/formatDate'
+import {
+  MAX_POLL_OPTIONS,
+  MIN_POLL_OPTIONS,
+  pollClosesAt,
+  pollDeadlineOptions,
+  type DeadlineOptions,
+} from '@/lib/pollDeadline'
 
 type Props = {
   eventId: string
@@ -25,39 +31,6 @@ type Props = {
   onPosted: () => void
 }
 
-const HOUR = 3_600_000
-
-// Mirrors poll_default_close in the database: midnight UTC at the start of
-// the event day (the evening before, for US guests), but at least 3 hours
-// away. Only used to label the default; the server sets the real value.
-function defaultPollClose(eventDate: string | null): Date {
-  const match = eventDate && /^(\d{4})-(\d{2})-(\d{2})/.exec(eventDate)
-  const now = new Date()
-  const eventStart = match
-    ? Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
-    : Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)
-  return new Date(Math.max(eventStart, now.getTime() + 3 * HOUR))
-}
-
-// Shorter voting windows a poster can pick instead of the default.
-const DEADLINE_CHOICES = [
-  { value: '3h', label: 'In 3 hours', ms: 3 * HOUR },
-  { value: '24h', label: 'In 24 hours', ms: 24 * HOUR },
-  { value: '3d', label: 'In 3 days', ms: 72 * HOUR },
-]
-
-type DeadlineOptions = { defaultLabel: string; choices: typeof DEADLINE_CHOICES }
-
-// Reads the clock, so it's called when poll mode opens rather than during
-// render. Only offers windows that end before the default deadline.
-function pollDeadlineOptions(eventDate: string | null): DeadlineOptions {
-  const byDefault = defaultPollClose(eventDate)
-  return {
-    defaultLabel: formatDeadline(byDefault),
-    choices: DEADLINE_CHOICES.filter((c) => Date.now() + c.ms < byDefault.getTime()),
-  }
-}
-
 // A chosen photo plus a local URL for previewing it before upload.
 type Picked = { file: File; url: string }
 
@@ -68,10 +41,6 @@ const inputClass =
   'block w-full rounded-md border border-stone-line bg-cream px-3 py-2 text-sm text-stone placeholder:text-stone-muted focus:border-terracotta focus:outline-none'
 const fileInputClass =
   'block w-full text-sm text-stone-muted file:mr-3 file:rounded-full file:border-0 file:bg-terracotta-light file:px-4 file:py-2 file:text-sm file:font-medium file:text-terracotta-dark'
-
-// Matches the limits enforced by the create_outfit_poll database function.
-const MIN_POLL_OPTIONS = 2
-const MAX_POLL_OPTIONS = 3
 
 export default function OutfitPostForm({
   eventId,
@@ -132,8 +101,6 @@ export default function OutfitPostForm({
     try {
       setGuestName(eventId, name.trim())
 
-      const choice = DEADLINE_CHOICES.find((c) => c.value === deadline)
-      const closesAt = choice ? new Date(Date.now() + choice.ms) : null
 
       const imageUrls: string[] = []
       for (const f of pollFiles) {
@@ -147,7 +114,7 @@ export default function OutfitPostForm({
         p_image_urls: imageUrls,
         p_caption: caption.trim() || null,
         // null lets the server apply its default (the evening before).
-        p_closes_at: closesAt ? closesAt.toISOString() : null,
+        p_closes_at: pollClosesAt(deadline),
       })
 
       if (error) {

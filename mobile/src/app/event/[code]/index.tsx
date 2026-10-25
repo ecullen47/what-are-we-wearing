@@ -152,6 +152,9 @@ export default function EventScreen() {
     setBusyPostId(null)
   }
 
+  const openEdit = (post: OutfitPost) =>
+    router.push({ pathname: '/event/[code]/edit', params: { code, post: post.id } })
+
   const handleDelete = async (post: OutfitPost) => {
     if (!event) return
     if (!(await confirm('Delete this post?', 'Everyone will stop seeing it.', 'Delete'))) return
@@ -292,7 +295,7 @@ export default function EventScreen() {
           <Card style={styles.empty}>
             <Heading style={{ fontSize: 20, textAlign: 'center' }}>No outfits yet</Heading>
             <Body muted style={{ textAlign: 'center' }}>
-              Be the first to post what you&apos;re wearing.
+              Be the first to post what you&apos;re wearing, or post two options and let everyone vote.
             </Body>
           </Card>
         }
@@ -304,6 +307,7 @@ export default function EventScreen() {
               busy={busyPostId === item.id}
               onVote={(optionId) => handleVote(item, optionId)}
               onPickWinner={(optionId) => handlePickWinner(item, optionId)}
+              onEdit={() => openEdit(item)}
               onDelete={() => handleDelete(item)}
               onOpenPhoto={setPhoto}
             />
@@ -313,6 +317,7 @@ export default function EventScreen() {
               isMine={myPostIds.includes(item.id)}
               busy={busyPostId === item.id}
               onLike={() => handleLike(item)}
+              onEdit={() => openEdit(item)}
               onDelete={() => handleDelete(item)}
               onOpenPhoto={setPhoto}
             />

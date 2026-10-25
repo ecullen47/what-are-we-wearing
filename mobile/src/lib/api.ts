@@ -76,6 +76,47 @@ export async function insertOutfitPost(args: {
   return data as string
 }
 
+// Returns the new poll's id. closesAt null lets the server pick its default.
+export async function createOutfitPoll(args: {
+  code: string
+  name: string
+  imageUrls: string[]
+  question: string | null
+  closesAt: string | null
+}): Promise<string> {
+  const { data, error } = await supabase.rpc('create_outfit_poll', {
+    p_code: args.code,
+    p_display_name: args.name,
+    p_guest_token: getGuestToken(),
+    p_image_urls: args.imageUrls,
+    p_caption: args.question,
+    p_closes_at: args.closesAt,
+  })
+  if (error) throw error
+  return data as string
+}
+
+// A poll keeps its own photo and colors; only the name and question change.
+export async function updateOwnPost(args: {
+  code: string
+  postId: string
+  name: string
+  imageUrl: string
+  caption: string | null
+  colors: string[]
+}): Promise<void> {
+  const { error } = await supabase.rpc('update_own_outfit_post', {
+    p_code: args.code,
+    p_post_id: args.postId,
+    p_guest_token: getGuestToken(),
+    p_display_name: args.name,
+    p_image_url: args.imageUrl,
+    p_caption: args.caption,
+    p_colors: args.colors,
+  })
+  if (error) throw error
+}
+
 export async function deleteOwnPost(code: string, postId: string): Promise<void> {
   const { error } = await supabase.rpc('delete_own_outfit_post', {
     p_code: code,

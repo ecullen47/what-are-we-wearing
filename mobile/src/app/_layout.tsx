@@ -41,6 +41,7 @@ export default function RootLayout() {
           name="event/[code]/post"
           options={{ title: 'Post your outfit', presentation: 'modal' }}
         />
+        <Stack.Screen name="event/[code]/edit" options={{ title: 'Edit your post', presentation: 'modal' }} />
       </Stack>
     </>
   )

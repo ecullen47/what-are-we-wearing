@@ -11,6 +11,7 @@ export function OutfitCard({
   isMine,
   busy,
   onLike,
+  onEdit,
   onDelete,
   onOpenPhoto,
 }: {
@@ -18,6 +19,7 @@ export function OutfitCard({
   isMine: boolean
   busy: boolean
   onLike: () => void
+  onEdit: () => void
   onDelete: () => void
   onOpenPhoto: (url: string) => void
 }) {
@@ -53,11 +55,7 @@ export function OutfitCard({
           ))}
         </View>
       )}
-      {isMine && (
-        <Pressable onPress={onDelete} hitSlop={8} accessibilityRole="button" style={styles.deleteLink}>
-          <Body style={styles.deleteText}>Delete my post</Body>
-        </Pressable>
-      )}
+      {isMine && <OwnPostLinks onEdit={onEdit} onDelete={onDelete} />}
     </Card>
   )
 }
@@ -68,6 +66,7 @@ export function PollCard({
   busy,
   onVote,
   onPickWinner,
+  onEdit,
   onDelete,
   onOpenPhoto,
 }: {
@@ -76,6 +75,7 @@ export function PollCard({
   busy: boolean
   onVote: (optionId: string) => void
   onPickWinner: (optionId: string) => void
+  onEdit: () => void
   onDelete: () => void
   onOpenPhoto: (url: string) => void
 }) {
@@ -163,12 +163,21 @@ export function PollCard({
           {isMine ? 'If you haven’t picked by then, the top vote wins.' : 'Then the top vote wins.'}
         </Body>
       )}
-      {isMine && (
-        <Pressable onPress={onDelete} hitSlop={8} accessibilityRole="button" style={styles.deleteLink}>
-          <Body style={styles.deleteText}>Delete my poll</Body>
-        </Pressable>
-      )}
+      {isMine && <OwnPostLinks onEdit={onEdit} onDelete={onDelete} />}
     </Card>
+  )
+}
+
+function OwnPostLinks({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void }) {
+  return (
+    <View style={styles.ownLinks}>
+      <Pressable onPress={onEdit} hitSlop={8} accessibilityRole="button">
+        <Body style={styles.editText}>Edit</Body>
+      </Pressable>
+      <Pressable onPress={onDelete} hitSlop={8} accessibilityRole="button">
+        <Body style={styles.deleteText}>Delete</Body>
+      </Pressable>
+    </View>
   )
 }
 
@@ -181,8 +190,9 @@ const styles = StyleSheet.create({
   heart: { fontSize: 22, color: colors.stoneMuted },
   likeCount: { fontSize: 14, color: colors.stoneMuted },
   dots: { flexDirection: 'row', gap: 6 },
-  deleteLink: { alignSelf: 'flex-start' },
-  deleteText: { color: colors.terracottaDark, fontSize: 13 },
+  ownLinks: { flexDirection: 'row', gap: 18 },
+  editText: { color: colors.terracotta, fontFamily: fonts.sansMedium, fontSize: 13 },
+  deleteText: { color: colors.stoneMuted, fontSize: 13 },
   options: { flexDirection: 'row', gap: 8 },
   option: { flex: 1, gap: 6 },
   optionPhoto: { width: '100%', aspectRatio: 3 / 4, borderRadius: 10, backgroundColor: colors.creamDark },
