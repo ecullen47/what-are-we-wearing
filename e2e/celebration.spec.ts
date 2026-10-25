@@ -9,7 +9,8 @@ test('a host pins an update and adds an event under the celebration', async ({ p
   await page.getByPlaceholder('Email').fill(process.env.TEST_HOST_EMAIL!)
   await page.getByPlaceholder('Password').fill(process.env.TEST_HOST_PASSWORD!)
   await page.getByRole('button', { name: 'Log In' }).click()
-  await expect(page).toHaveURL(new RegExp(`/event/${event.code}$`))
+  // The full address: the login URL itself ends in the event's (its ?next=).
+  await expect(page).toHaveURL(new URL(`/event/${event.code}`, page.url()).href)
 
   // A guest has the page open and sees the update arrive live.
   const guestPage = await (await browser.newContext()).newPage()

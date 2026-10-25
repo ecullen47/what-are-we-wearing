@@ -102,7 +102,9 @@ export default function EventPage() {
   const [posts, setPosts] = useState<OutfitPost[]>([])
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
+  // Host covers co-hosts too; only the owner can add parts.
   const [isHost, setIsHost] = useState(false)
+  const [isOwner, setIsOwner] = useState(false)
   const [isAttending, setIsAttending] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
   const [joining, setJoining] = useState(false)
@@ -240,13 +242,14 @@ export default function EventPage() {
       const { data: userData } = await supabase.auth.getUser()
       if (userData?.user) {
         setUserId(userData.user.id)
-        const { data: ownEvent } = await supabase
+        // Hosts and co-hosts can read the event row directly; guests can't.
+        const { data: hostedEvent } = await supabase
           .from('events')
-          .select('id')
+          .select('host_id')
           .eq('id', eventData.id)
-          .eq('host_id', userData.user.id)
           .maybeSingle()
-        setIsHost(!!ownEvent)
+        setIsHost(!!hostedEvent)
+        setIsOwner(hostedEvent?.host_id === userData.user.id)
 
         const { data: attendance } = await supabase
           .from('event_attendance')
@@ -567,7 +570,7 @@ export default function EventPage() {
         )}
       </header>
 
-      {!event.parent_name && <EventParts parts={parts} parentCode={event.invite_code} isHost={isHost} />}
+      {!event.parent_name && <EventParts parts={parts} parentCode={event.invite_code} canAdd={isOwner} />}
 
       {event.inspo_image_urls.length > 0 && (
         <div className="mt-6 grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2">
