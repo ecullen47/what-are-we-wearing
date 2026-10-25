@@ -9,6 +9,7 @@ import { getGuestToken, getMyPostIds, removeMyPostId } from '@/lib/guestIdentity
 import { removeEventImages, uploadEventImage } from '@/lib/uploadImage'
 import { formatEventDate } from '@/lib/formatDate'
 import ColorChip, { SwatchDot } from '@/components/ColorChip'
+import { resolveColor } from '@/lib/palette'
 import SwatchPicker from '@/components/SwatchPicker'
 import ColorWarnings from '@/components/ColorWarnings'
 import PollCard, { type PollOption } from '@/components/PollCard'
@@ -107,6 +108,8 @@ export default function EventPage() {
   const [editSubmitting, setEditSubmitting] = useState(false)
   const [editMessage, setEditMessage] = useState('')
   const [copied, setCopied] = useState(false)
+  // Palette color id the outfit feed is narrowed to, if any.
+  const [colorFilter, setColorFilter] = useState<string | null>(null)
   // The outfit feed (post, vote, like, edit) or the photo gallery.
   const [view, setView] = useState<'feed' | 'gallery'>('feed')
   const [inspoOpen, setInspoOpen] = useState<number | null>(null)
@@ -409,14 +412,25 @@ export default function EventPage() {
     }
   }
 
-  const handleCopyLink = async () => {
-    await navigator.clipboard.writeText(window.location.href)
+  // Phones get their share sheet; elsewhere the link is copied.
+  const handleShareLink = async () => {
+    const url = `${window.location.origin}/event/${code}`
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: event?.name?.trim() || 'What Are We Wearing?', url })
+      } catch {
+        // Closing the share sheet rejects; nothing to do.
+      }
+      return
+    }
+    await navigator.clipboard.writeText(url)
     setCopied(true)
     toast('Link copied. Send it to your guests!')
     setTimeout(() => setCopied(false), 2000)
   }
 
   const colorCounts = countColors(posts)
+  const shownPosts = colorFilter ? posts.filter((p) => (p.colors ?? []).includes(colorFilter)) : posts
   // Inspo images + one photo per outfit + each open poll option.
   const photoCount =
     (event?.inspo_image_urls.length ?? 0) +
@@ -449,12 +463,20 @@ export default function EventPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <EventBadges type={event.event_type} date={event.event_date} />
           {isHost ? (
-            <Link
-              href={`/event/${code}/edit`}
-              className="shrink-0 rounded-full border border-terracotta px-4 py-1.5 text-sm font-medium text-terracotta transition-colors hover:bg-terracotta-light"
-            >
-              Edit Event
-            </Link>
+            <div className="flex shrink-0 items-center gap-2">
+              <Link
+                href={`/event/${code}/card`}
+                className="rounded-full px-3 py-1.5 text-sm font-medium text-terracotta transition-colors hover:bg-terracotta-light"
+              >
+                Print invite card
+              </Link>
+              <Link
+                href={`/event/${code}/edit`}
+                className="rounded-full border border-terracotta px-4 py-1.5 text-sm font-medium text-terracotta transition-colors hover:bg-terracotta-light"
+              >
+                Edit Event
+              </Link>
+            </div>
           ) : isAttending ? (
             <span className="text-xs font-medium text-stone-muted">&#10003; In your events</span>
           ) : userId ? (
@@ -492,10 +514,10 @@ export default function EventPage() {
           <p className="mt-4 text-sm text-stone-muted">
             Invite code: <strong className="tracking-wide text-stone">{event.invite_code}</strong>{' '}
             <button
-              onClick={handleCopyLink}
+              onClick={handleShareLink}
               className="ml-1 rounded-full border border-terracotta px-3 py-1 text-xs font-medium text-terracotta transition-colors hover:bg-terracotta-light"
             >
-              {copied ? 'Copied!' : 'Copy link to share'}
+              {copied ? 'Copied!' : 'Share link'}
             </button>
           </p>
         )}
@@ -596,14 +618,34 @@ export default function EventPage() {
       <>
       {colorCounts.size > 0 && (
         <div className="mt-3">
-          <p className="mb-1.5 text-xs font-medium tracking-wide text-stone-muted uppercase">Colors so far</p>
+          <p className="mb-1.5 text-xs font-medium tracking-wide text-stone-muted uppercase">
+            Colors so far <span className="tracking-normal normal-case">· tap one to filter</span>
+          </p>
           <div className="flex flex-wrap gap-1.5">
             {[...colorCounts.entries()]
               .sort((a, b) => b[1] - a[1])
               .map(([id, n]) => (
-                <ColorChip key={id} value={id} count={n} />
+                <button
+                  key={id}
+                  onClick={() => setColorFilter(colorFilter === id ? null : id)}
+                  aria-pressed={colorFilter === id}
+                  className={`inline-flex rounded-full transition-shadow ${
+                    colorFilter === id ? 'ring-2 ring-terracotta ring-offset-1' : 'hover:ring-1 hover:ring-terracotta/50'
+                  }`}
+                >
+                  <ColorChip value={id} count={n} />
+                </button>
               ))}
           </div>
+          {colorFilter && (
+            <p className="mt-2 text-sm text-stone-muted">
+              Showing {shownPosts.length} outfit{shownPosts.length === 1 ? '' : 's'} with{' '}
+              {resolveColor(colorFilter)?.label ?? colorFilter}.{' '}
+              <button onClick={() => setColorFilter(null)} className="text-terracotta hover:underline">
+                Show all
+              </button>
+            </p>
+          )}
         </div>
       )}
       {posts.length === 0 && (
@@ -615,7 +657,7 @@ export default function EventPage() {
         </div>
       )}
       <div className="mt-4 grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-4">
-        {posts.map((post) =>
+        {shownPosts.map((post) =>
           editingPostId === post.id ? (
             <div key={post.id} className="col-span-full rounded-lg border border-terracotta bg-white p-3">
               <input

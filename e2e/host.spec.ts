@@ -35,6 +35,15 @@ test('a host from a platform link logs in and creates the prefilled event', asyn
 
   const { data } = await host.from('events').select('id, event_type, location').eq('invite_code', code).single()
   expect(data).toMatchObject({ event_type: 'party', location: 'Brooklyn' })
+
+  // The host can print an invite card with the dress code and the code.
+  await page.goto(`/event/${code}`)
+  await page.getByRole('link', { name: 'Print invite card' }).click()
+  await expect(page).toHaveURL(new RegExp(`/event/${code}/card$`))
+  await expect(page.getByText('Cocktail chic')).toBeVisible()
+  await expect(page.getByText(`Scan, or enter code ${code}`)).toBeVisible()
+  await expect(page.getByLabel('QR code for the event page').locator('svg')).toBeVisible()
+
   await deleteTestEvent(host, { id: data!.id, code })
 })
 

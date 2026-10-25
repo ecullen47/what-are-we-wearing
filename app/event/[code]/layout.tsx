@@ -33,16 +33,14 @@ export async function generateMetadata({ params }: { params: Promise<{ code: str
     .filter(Boolean)
     .join(' ')
 
-  // Setting openGraph here replaces (not merges with) the root's, which
-  // drops the inherited preview image, so point back to it explicitly.
-  const images = ['/opengraph-image']
-
+  // The image comes from this segment's opengraph-image.tsx, which shows
+  // the event itself.
   return {
     title,
     description,
     robots,
-    openGraph: { title, description, images },
-    twitter: { card: 'summary_large_image', title, description, images },
+    openGraph: { title, description },
+    twitter: { card: 'summary_large_image', title, description },
   }
 }
 
