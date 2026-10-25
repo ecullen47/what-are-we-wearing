@@ -50,6 +50,10 @@ TEST_HOST_PASSWORD=...
 
 GitHub Actions (`.github/workflows/ci.yml`) runs lint, both test suites and a production build on every pull request and push to `main`. It needs these repository secrets: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `TEST_HOST_EMAIL`, `TEST_HOST_PASSWORD`.
 
+## Mobile app
+
+`mobile/` is an Expo app for guests, on the same Supabase backend. See [mobile/README.md](mobile/README.md).
+
 ## Getting Started
 
 First, run the development server:
