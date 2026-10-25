@@ -28,6 +28,8 @@ type Props = {
   // Guest's name passed in the invite link (?name=), used as a prefill.
   nameFromLink: string | null
   eventDate: string | null
+  // The event has happened: guests add what they wore, and polls are off.
+  isOver?: boolean
   onPosted: () => void
 }
 
@@ -52,6 +54,7 @@ export default function OutfitPostForm({
   hostName,
   nameFromLink,
   eventDate,
+  isOver = false,
   onPosted,
 }: Props) {
   const [mode, setMode] = useState<'outfit' | 'poll'>('outfit')
@@ -196,8 +199,11 @@ export default function OutfitPostForm({
   return (
     <div className="rounded-lg border border-stone-line bg-cream-dark/40 p-5">
       <h3 className="font-display text-xl text-stone">
-        {mode === 'poll' ? 'Help Me Choose' : 'Post Your Outfit'}
+        {mode === 'poll' ? 'Help Me Choose' : isOver ? 'Add What You Wore' : 'Post Your Outfit'}
       </h3>
+      {isOver ? (
+        <p className="mt-1 text-sm text-stone-muted">The day has come and gone. Share a photo of what you actually wore.</p>
+      ) : (
       <button
         type="button"
         onClick={() => {
@@ -212,6 +218,7 @@ export default function OutfitPostForm({
       >
         {mode === 'poll' ? '← Back to posting one outfit' : "Can't decide? Post 2–3 options and let guests vote"}
       </button>
+      )}
 
       {/* Once a guest has picked an outfit photo, the side-by-side below
           takes over from this strip. */}

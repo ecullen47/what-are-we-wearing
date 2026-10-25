@@ -7,6 +7,13 @@ Sharing an event:
 - Invite links get a preview image with the event's name, date, dress code, colors and first inspo photo (`app/event/[code]/opengraph-image.tsx`).
 - Hosts can print a 5×7 invite card with a QR code from the event page (`/event/<CODE>/card`).
 
+For hosts:
+
+- **Pinned updates.** A note at the top of the event ("Ceremony moved outdoors, bring flats") that guests see live.
+- **Events with parts.** A wedding weekend can have welcome drinks, the ceremony and brunch under it, each with its own code, dress code and outfits. Guests with the weekend's code see all of them; a part's code only opens that part. Add one from the parent event's page (`/create-event?part_of=<CODE>`).
+- **After the event**, its page becomes "What everyone wore": guests can still add photos, but new polls are closed.
+- **Co-hosts.** On the edit page, the host makes a private co-host link (`/cohost/<token>`) and sends it. Whoever opens it logs in or signs up and joins. Co-hosts can edit the event, pin updates and remove posts; only the owner can delete the event, add parts or manage the link. Making a new link or turning it off stops the old one working.
+
 ## Linking guests to an event
 
 Other platforms (invite and RSVP tools) can send guests straight to an event:
@@ -52,7 +59,9 @@ TEST_HOST_EMAIL=...
 TEST_HOST_PASSWORD=...
 ```
 
-- `npm test` runs the database tests (`tests/db`): guest posts, edits and deletes, likes, polls (hidden results, voting, deadlines, auto-close) and permissions.
+The co-host tests also need a second account to join as a co-host: `TEST_COHOST_EMAIL` and `TEST_COHOST_PASSWORD`. Without them those tests are skipped.
+
+- `npm test` runs the database tests (`tests/db`): guest posts, edits and deletes, likes, polls (hidden results, voting, deadlines, auto-close), host notes, events with parts, co-hosts and permissions.
 - `npm run test:e2e` runs the browser tests (`e2e`) with Playwright. It reuses the dev server on port 3000 if one is running. First time only: `npx playwright install chromium`.
 
 GitHub Actions (`.github/workflows/ci.yml`) runs lint, both test suites and a production build on every pull request and push to `main`. It needs these repository secrets: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `TEST_HOST_EMAIL`, `TEST_HOST_PASSWORD`.

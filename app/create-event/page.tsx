@@ -44,6 +44,8 @@ export default function CreateEventPage() {
   const [submitting, setSubmitting] = useState(false)
   // True when another platform's link filled in some details.
   const [prefilled, setPrefilled] = useState(false)
+  // The celebration this event is being added to (?part_of=CODE), if any.
+  const [parent, setParent] = useState<{ id: string; name: string; code: string } | null>(null)
   const router = useRouter()
 
   useEffect(() => {
@@ -57,6 +59,26 @@ export default function CreateEventPage() {
         const here = `${window.location.pathname}${window.location.search}`
         router.replace(`/login?next=${encodeURIComponent(here)}`)
         return
+      }
+
+      // Adding a part (brunch, say) to one of this host's events: start
+      // from the parent's details. Only the host's own top-level events
+      // qualify; the database checks this again on save.
+      const partOf = new URLSearchParams(window.location.search).get('part_of')?.trim().toUpperCase()
+      if (partOf) {
+        const { data: parentEvent } = await supabase
+          .from('events')
+          .select('id, name, invite_code, host_display_name, location, event_type, parent_event_id')
+          .eq('invite_code', partOf)
+          .eq('host_id', data.session.user.id)
+          .maybeSingle()
+        if (cancelled) return
+        if (parentEvent && !parentEvent.parent_event_id) {
+          setParent({ id: parentEvent.id, name: parentEvent.name, code: parentEvent.invite_code })
+          if (parentEvent.host_display_name) setHostDisplayName(parentEvent.host_display_name)
+          if (parentEvent.location) setLocation(parentEvent.location)
+          if (parentEvent.event_type) setEventType(parentEvent.event_type)
+        }
       }
 
       const prefill = readCreatePrefill(window.location.search)
@@ -118,6 +140,7 @@ export default function CreateEventPage() {
           event_type: eventType,
           dress_code_text: dressCode.trim(),
           invite_code: generateInviteCode(),
+          ...(parent ? { parent_event_id: parent.id } : {}),
         })
         .select('invite_code')
         .single()
@@ -144,10 +167,16 @@ export default function CreateEventPage() {
 
   return (
     <div className="mx-auto max-w-lg px-6 py-12">
-      <Link href="/dashboard" className="text-sm text-terracotta hover:underline">
-        &larr; Back to Dashboard
+      <Link href={parent ? `/event/${parent.code}` : '/dashboard'} className="text-sm text-terracotta hover:underline">
+        &larr; {parent ? `Back to ${parent.name}` : 'Back to Dashboard'}
       </Link>
-      <h1 className="mt-3 font-display text-3xl text-stone">Create an Event</h1>
+      <h1 className="mt-3 font-display text-3xl text-stone">{parent ? 'Add an Event' : 'Create an Event'}</h1>
+      {parent && (
+        <p className="mt-3 rounded-lg border border-lilac-deep/20 bg-lilac/60 px-4 py-3 text-sm text-stone">
+          This will be part of <strong>{parent.name}</strong>, with its own dress code and outfits. Guests with{' '}
+          {parent.name}&apos;s code will see it there.
+        </p>
+      )}
       {prefilled && (
         <p className="mt-3 rounded-lg border border-sage-deep/20 bg-sage/60 px-4 py-3 text-sm text-stone">
           We filled in what we could from your invite. Check it over, add anything missing, and you&apos;re set.
@@ -190,7 +219,7 @@ export default function CreateEventPage() {
                 setName(e.target.value)
                 clearError('name')
               }}
-              placeholder="e.g. Sarah & Tom's Wedding"
+              placeholder={parent ? 'e.g. Welcome Drinks' : "e.g. Sarah & Tom's Wedding"}
               className={field('name')}
             />
             {errors.name && <p className={errorClass}>{errors.name}</p>}
