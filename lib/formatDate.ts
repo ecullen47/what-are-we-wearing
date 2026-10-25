@@ -50,6 +50,22 @@ export function formatDeadline(value: string | Date): string {
   return `${date} at ${time}`
 }
 
+// How long ago something happened, e.g. "just now", "20 minutes ago",
+// "3 hours ago", "yesterday", or "Sat, Nov 14".
+export function formatTimeAgo(value: string | Date): string {
+  const when = typeof value === 'string' ? new Date(value) : value
+  const minutes = Math.round((Date.now() - when.getTime()) / 60_000)
+  if (minutes < 1) return 'just now'
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'} ago`
+  const hours = Math.round(minutes / 60)
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const day = new Date(when.getFullYear(), when.getMonth(), when.getDate())
+  if (Math.round((today.getTime() - day.getTime()) / 86_400_000) === 1) return 'yesterday'
+  return when.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+}
+
 export function countdownLabel(value: string | null | undefined): string | null {
   const days = daysUntil(value)
   if (days === null) return null

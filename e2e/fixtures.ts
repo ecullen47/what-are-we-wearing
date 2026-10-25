@@ -9,7 +9,9 @@ export const test = base.extend<{ host: SupabaseClient; event: TestEvent }>({
   host: async ({}, provide) => {
     const host = await hostClient()
     await provide(host)
-    await host.auth.signOut()
+    // Local only: the default signs the test host out everywhere,
+    // including browser pages another test is using at the same time.
+    await host.auth.signOut({ scope: 'local' })
   },
   event: async ({ host }, provide) => {
     const event = await createTestEvent(host)

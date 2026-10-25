@@ -7,6 +7,12 @@ Sharing an event:
 - Invite links get a preview image with the event's name, date, dress code, colors and first inspo photo (`app/event/[code]/opengraph-image.tsx`).
 - Hosts can print a 5×7 invite card with a QR code from the event page (`/event/<CODE>/card`).
 
+For hosts:
+
+- **Pinned updates.** A note at the top of the event ("Ceremony moved outdoors, bring flats") that guests see live.
+- **Events with parts.** A wedding weekend can have welcome drinks, the ceremony and brunch under it, each with its own code, dress code and outfits. Guests with the weekend's code see all of them; a part's code only opens that part. Add one from the parent event's page (`/create-event?part_of=<CODE>`).
+- **After the event**, its page becomes "What everyone wore": guests can still add photos, but new polls are closed.
+
 ## Linking guests to an event
 
 Other platforms (invite and RSVP tools) can send guests straight to an event:
