@@ -20,6 +20,9 @@ jobs:
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
       TEST_HOST_EMAIL: ${{ secrets.TEST_HOST_EMAIL }}
       TEST_HOST_PASSWORD: ${{ secrets.TEST_HOST_PASSWORD }}
+      # Optional second account for the co-host tests; skipped when unset.
+      TEST_COHOST_EMAIL: ${{ secrets.TEST_COHOST_EMAIL }}
+      TEST_COHOST_PASSWORD: ${{ secrets.TEST_COHOST_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

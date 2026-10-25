@@ -26,7 +26,7 @@ export default function SiteHeader() {
   const linkClass = 'text-sm text-stone-muted transition-colors hover:text-terracotta'
 
   return (
-    <header className="border-b border-stone-line/70 bg-cream/90 backdrop-blur">
+    <header className="border-b border-stone-line/70 bg-cream/90 backdrop-blur print:hidden">
       <div className="h-1 bg-linear-to-r from-blush via-butter via-50% to-sky" aria-hidden="true" />
       <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-6 py-3">
         <Link href="/" className="font-display text-lg leading-none text-stone">

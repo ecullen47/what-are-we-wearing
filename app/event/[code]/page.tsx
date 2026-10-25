@@ -7,14 +7,17 @@ import { supabase } from '@/lib/supabase'
 import OutfitPostForm from '@/components/OutfitPostForm'
 import { getGuestToken, getMyPostIds, removeMyPostId } from '@/lib/guestIdentity'
 import { removeEventImages, uploadEventImage } from '@/lib/uploadImage'
-import { formatEventDate } from '@/lib/formatDate'
+import { daysUntil, formatEventDate } from '@/lib/formatDate'
 import ColorChip, { SwatchDot } from '@/components/ColorChip'
+import { resolveColor } from '@/lib/palette'
 import SwatchPicker from '@/components/SwatchPicker'
 import ColorWarnings from '@/components/ColorWarnings'
 import PollCard, { type PollOption } from '@/components/PollCard'
 import EventGallery from '@/components/EventGallery'
 import PhotoViewer from '@/components/PhotoViewer'
 import EventBadges from '@/components/EventBadges'
+import HostNote from '@/components/HostNote'
+import EventParts, { type EventPart } from '@/components/EventParts'
 import { EventPageSkeleton } from '@/components/Skeleton'
 import { toast } from '@/lib/toast'
 import { useEventLive } from '@/lib/eventLive'
@@ -34,6 +37,11 @@ type EventData = {
   suggested_colors: string[]
   off_limit_colors: string[]
   color_notes: string | null
+  // Missing until the host-notes migration is applied.
+  host_note?: string | null
+  host_note_updated_at?: string | null
+  // Name of the celebration this event is part of, if any.
+  parent_name?: string | null
 }
 
 type OutfitPost = {
@@ -94,7 +102,9 @@ export default function EventPage() {
   const [posts, setPosts] = useState<OutfitPost[]>([])
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
+  // Host covers co-hosts too; only the owner can add parts.
   const [isHost, setIsHost] = useState(false)
+  const [isOwner, setIsOwner] = useState(false)
   const [isAttending, setIsAttending] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
   const [joining, setJoining] = useState(false)
@@ -107,12 +117,16 @@ export default function EventPage() {
   const [editSubmitting, setEditSubmitting] = useState(false)
   const [editMessage, setEditMessage] = useState('')
   const [copied, setCopied] = useState(false)
+  // Palette color id the outfit feed is narrowed to, if any.
+  const [colorFilter, setColorFilter] = useState<string | null>(null)
   // The outfit feed (post, vote, like, edit) or the photo gallery.
   const [view, setView] = useState<'feed' | 'gallery'>('feed')
   const [inspoOpen, setInspoOpen] = useState<number | null>(null)
   const [nameFromLink, setNameFromLink] = useState<string | null>(null)
   // Post currently being voted on / liked / resolved, to disable its buttons.
   const [busyPostId, setBusyPostId] = useState<string | null>(null)
+  // Events under this one (a wedding's welcome drinks, ceremony, brunch).
+  const [parts, setParts] = useState<EventPart[]>([])
 
   // The viewer token lets the server mark our own votes/likes and decide
   // whether we've earned the right to see poll results.
@@ -124,6 +138,12 @@ export default function EventPage() {
     const fresh: OutfitPost[] = data ?? []
     setPosts(fresh)
     return fresh
+  }, [code])
+
+  // A missing function (before the migration) just means no parts.
+  const loadParts = useCallback(async () => {
+    const { data } = await supabase.rpc('get_event_parts_by_code', { p_code: code })
+    setParts((data as EventPart[] | null) ?? [])
   }, [code])
 
   // Posts we've already shown, so a live refresh can say what's new.
@@ -139,6 +159,7 @@ export default function EventPage() {
     const [{ data: eventData }, fresh] = await Promise.all([
       supabase.rpc('get_event_by_code', { p_code: code }).maybeSingle(),
       loadPosts(),
+      loadParts(),
     ])
     if (!eventData) {
       setNotFound(true)
@@ -153,7 +174,7 @@ export default function EventPage() {
     } else if (added.length > 1) {
       toast(`${added.length} new posts`)
     }
-  }, [code, loadPosts])
+  }, [code, loadPosts, loadParts])
 
   const announceChange = useEventLive(event?.id, handleRemoteChange)
 
@@ -216,18 +237,19 @@ export default function EventPage() {
 
       setEvent(eventData)
       setMyPostIds(getMyPostIds(eventData.id))
-      await loadPosts()
+      await Promise.all([loadPosts(), loadParts()])
 
       const { data: userData } = await supabase.auth.getUser()
       if (userData?.user) {
         setUserId(userData.user.id)
-        const { data: ownEvent } = await supabase
+        // Hosts and co-hosts can read the event row directly; guests can't.
+        const { data: hostedEvent } = await supabase
           .from('events')
-          .select('id')
+          .select('host_id')
           .eq('id', eventData.id)
-          .eq('host_id', userData.user.id)
           .maybeSingle()
-        setIsHost(!!ownEvent)
+        setIsHost(!!hostedEvent)
+        setIsOwner(hostedEvent?.host_id === userData.user.id)
 
         const { data: attendance } = await supabase
           .from('event_attendance')
@@ -242,7 +264,7 @@ export default function EventPage() {
     }
 
     load()
-  }, [code, loadPosts])
+  }, [code, loadPosts, loadParts])
 
   // Links ending in #post jump straight to the post form. The browser
   // can't do that itself because the form only renders once the event has
@@ -409,14 +431,38 @@ export default function EventPage() {
     }
   }
 
-  const handleCopyLink = async () => {
-    await navigator.clipboard.writeText(window.location.href)
+  const handleSaveNote = async (note: string | null): Promise<string | null> => {
+    if (!event) return null
+    const { error } = await supabase.from('events').update({ host_note: note }).eq('id', event.id)
+    if (error) return `Couldn't save: ${error.message}`
+    await handleRemoteChange()
+    announceChange()
+    return null
+  }
+
+  // Phones get their share sheet; elsewhere the link is copied.
+  const handleShareLink = async () => {
+    const url = `${window.location.origin}/event/${code}`
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: event?.name?.trim() || 'What Are We Wearing?', url })
+      } catch {
+        // Closing the share sheet rejects; nothing to do.
+      }
+      return
+    }
+    await navigator.clipboard.writeText(url)
     setCopied(true)
     toast('Link copied. Send it to your guests!')
     setTimeout(() => setCopied(false), 2000)
   }
 
   const colorCounts = countColors(posts)
+  // After the day, the page becomes a keepsake of what everyone wore.
+  const isOver = (daysUntil(event?.event_date) ?? 0) < 0
+  // A celebration with parts is an overview; outfits live on each part.
+  const isOverview = parts.length > 0 && posts.length === 0
+  const shownPosts = colorFilter ? posts.filter((p) => (p.colors ?? []).includes(colorFilter)) : posts
   // Inspo images + one photo per outfit + each open poll option.
   const photoCount =
     (event?.inspo_image_urls.length ?? 0) +
@@ -449,12 +495,20 @@ export default function EventPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <EventBadges type={event.event_type} date={event.event_date} />
           {isHost ? (
-            <Link
-              href={`/event/${code}/edit`}
-              className="shrink-0 rounded-full border border-terracotta px-4 py-1.5 text-sm font-medium text-terracotta transition-colors hover:bg-terracotta-light"
-            >
-              Edit Event
-            </Link>
+            <div className="flex shrink-0 items-center gap-2">
+              <Link
+                href={`/event/${code}/card`}
+                className="rounded-full px-3 py-1.5 text-sm font-medium text-terracotta transition-colors hover:bg-terracotta-light"
+              >
+                Print invite card
+              </Link>
+              <Link
+                href={`/event/${code}/edit`}
+                className="rounded-full border border-terracotta px-4 py-1.5 text-sm font-medium text-terracotta transition-colors hover:bg-terracotta-light"
+              >
+                Edit Event
+              </Link>
+            </div>
           ) : isAttending ? (
             <span className="text-xs font-medium text-stone-muted">&#10003; In your events</span>
           ) : userId ? (
@@ -468,7 +522,14 @@ export default function EventPage() {
           ) : null}
         </div>
 
-        <h1 className="mt-4 font-display text-4xl leading-tight text-stone sm:text-5xl">
+        {event.parent_name && (
+          <p className="mt-4 text-xs font-medium tracking-[0.18em] text-terracotta uppercase">
+            Part of {event.parent_name}
+          </p>
+        )}
+        <h1
+          className={`${event.parent_name ? 'mt-1' : 'mt-4'} font-display text-4xl leading-tight text-stone sm:text-5xl`}
+        >
           {event.name?.trim() || 'Untitled event'}
         </h1>
         {event.host_display_name && (
@@ -481,6 +542,14 @@ export default function EventPage() {
           {event.location ? <> &middot; {event.location}</> : null}
         </p>
 
+        <HostNote
+          note={event.host_note ?? null}
+          updatedAt={event.host_note_updated_at ?? null}
+          hostName={event.host_display_name}
+          isHost={isHost}
+          onSave={handleSaveNote}
+        />
+
         {event.dress_code_text && (
           <div className="mt-5 rounded-xl border border-blush-deep/20 bg-linear-to-br from-blush to-butter/70 px-5 py-4">
             <p className="text-[11px] font-medium tracking-[0.18em] text-blush-deep uppercase">Dress code</p>
@@ -492,14 +561,16 @@ export default function EventPage() {
           <p className="mt-4 text-sm text-stone-muted">
             Invite code: <strong className="tracking-wide text-stone">{event.invite_code}</strong>{' '}
             <button
-              onClick={handleCopyLink}
+              onClick={handleShareLink}
               className="ml-1 rounded-full border border-terracotta px-3 py-1 text-xs font-medium text-terracotta transition-colors hover:bg-terracotta-light"
             >
-              {copied ? 'Copied!' : 'Copy link to share'}
+              {copied ? 'Copied!' : 'Share link'}
             </button>
           </p>
         )}
       </header>
+
+      {!event.parent_name && <EventParts parts={parts} parentCode={event.invite_code} canAdd={isOwner} />}
 
       {event.inspo_image_urls.length > 0 && (
         <div className="mt-6 grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2">
@@ -548,8 +619,11 @@ export default function EventPage() {
         </div>
       )}
 
+      {!isOverview && (
+      <>
       <div id="post" className="mt-8 scroll-mt-6">
         <OutfitPostForm
+          isOver={isOver}
           eventId={event.id}
           inviteCode={event.invite_code}
           requiredColors={event.required_colors}
@@ -572,7 +646,7 @@ export default function EventPage() {
       <div className="mt-10 flex items-baseline gap-5 border-b border-stone-line" role="tablist">
         {(
           [
-            { key: 'feed', label: 'Outfits' },
+            { key: 'feed', label: isOver ? 'What everyone wore' : 'Outfits' },
             { key: 'gallery', label: `Gallery${photoCount > 0 ? ` · ${photoCount}` : ''}` },
           ] as const
         ).map((t) => (
@@ -596,26 +670,48 @@ export default function EventPage() {
       <>
       {colorCounts.size > 0 && (
         <div className="mt-3">
-          <p className="mb-1.5 text-xs font-medium tracking-wide text-stone-muted uppercase">Colors so far</p>
+          <p className="mb-1.5 text-xs font-medium tracking-wide text-stone-muted uppercase">
+            Colors so far <span className="tracking-normal normal-case">· tap one to filter</span>
+          </p>
           <div className="flex flex-wrap gap-1.5">
             {[...colorCounts.entries()]
               .sort((a, b) => b[1] - a[1])
               .map(([id, n]) => (
-                <ColorChip key={id} value={id} count={n} />
+                <button
+                  key={id}
+                  onClick={() => setColorFilter(colorFilter === id ? null : id)}
+                  aria-pressed={colorFilter === id}
+                  className={`inline-flex rounded-full transition-shadow ${
+                    colorFilter === id ? 'ring-2 ring-terracotta ring-offset-1' : 'hover:ring-1 hover:ring-terracotta/50'
+                  }`}
+                >
+                  <ColorChip value={id} count={n} />
+                </button>
               ))}
           </div>
+          {colorFilter && (
+            <p className="mt-2 text-sm text-stone-muted">
+              Showing {shownPosts.length} outfit{shownPosts.length === 1 ? '' : 's'} with{' '}
+              {resolveColor(colorFilter)?.label ?? colorFilter}.{' '}
+              <button onClick={() => setColorFilter(null)} className="text-terracotta hover:underline">
+                Show all
+              </button>
+            </p>
+          )}
         </div>
       )}
       {posts.length === 0 && (
         <div className="mt-5 rounded-xl border border-dashed border-stone-line bg-white/60 px-5 py-8 text-center">
           <p className="font-display text-xl text-stone">No outfits yet</p>
           <p className="mt-1 text-sm text-stone-muted">
-            Be the first to post what you&apos;re wearing, or post two options and let everyone vote.
+            {isOver
+              ? 'Add a photo of what you wore, so everyone has a keepsake of the day.'
+              : 'Be the first to post what you’re wearing, or post two options and let everyone vote.'}
           </p>
         </div>
       )}
       <div className="mt-4 grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-4">
-        {posts.map((post) =>
+        {shownPosts.map((post) =>
           editingPostId === post.id ? (
             <div key={post.id} className="col-span-full rounded-lg border border-terracotta bg-white p-3">
               <input
@@ -748,6 +844,8 @@ export default function EventPage() {
           )
         )}
       </div>
+      </>
+      )}
       </>
       )}
     </div>

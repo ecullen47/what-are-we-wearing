@@ -19,6 +19,10 @@ type EventSummary = {
   invite_code: string
   event_type: string | null
   inspo_image_urls: string[] | null
+  // Set on the parts of a bigger celebration (brunch under a wedding).
+  parent_event_id: string | null
+  // Someone else's when this user co-hosts it.
+  host_id: string
   outfit_posts: { count: number }[]
   latest: { image_url: string }[]
 }
@@ -41,6 +45,36 @@ function byEventDate<T extends { event_date: string }>(list: T[]): T[] {
   upcoming.sort((a, b) => a.event_date.localeCompare(b.event_date))
   past.sort((a, b) => b.event_date.localeCompare(a.event_date))
   return [...upcoming, ...past]
+}
+
+function HostEventCard({
+  event,
+  partCount = 0,
+  userId,
+}: {
+  event: EventSummary
+  partCount?: number
+  userId: string | null
+}) {
+  const count = event.outfit_posts?.[0]?.count ?? 0
+  return (
+    <EventCard
+      href={`/event/${event.invite_code}`}
+      name={event.name}
+      date={event.event_date}
+      location={event.location}
+      type={event.event_type}
+      coverUrl={event.inspo_image_urls?.[0] ?? event.latest?.[0]?.image_url ?? null}
+    >
+      <p className="mt-1 text-xs text-stone-muted">
+        {event.host_id !== userId && <span className="mr-1.5 font-medium text-lilac-deep">Co-hosting &middot;</span>}
+        Code <strong className="tracking-wide text-stone">{event.invite_code}</strong> &middot;{' '}
+        {partCount > 0
+          ? `${partCount} event${partCount === 1 ? '' : 's'}`
+          : `${count} outfit${count === 1 ? '' : 's'} posted`}
+      </p>
+    </EventCard>
+  )
 }
 
 function EventCard({
@@ -103,6 +137,7 @@ function EventCard({
 export default function DashboardPage() {
   const router = useRouter()
   const [events, setEvents] = useState<EventSummary[] | null>(null)
+  const [userId, setUserId] = useState<string | null>(null)
   const [attending, setAttending] = useState<AttendingEvent[]>([])
   const [eventCode, setEventCode] = useState('')
   const [message, setMessage] = useState('')
@@ -122,15 +157,17 @@ export default function DashboardPage() {
         router.push('/login')
         return
       }
+      setUserId(user.id)
 
       // `latest` is the newest outfit photo, used as a cover when the event
       // has no inspo images.
       const { data } = await supabase
         .from('events')
         .select(
-          'id, name, event_date, location, invite_code, event_type, inspo_image_urls, outfit_posts(count), latest:outfit_posts(image_url)'
+          'id, name, event_date, location, invite_code, event_type, inspo_image_urls, parent_event_id, host_id, outfit_posts(count), latest:outfit_posts(image_url)'
         )
-        .eq('host_id', user.id)
+        // No host filter: the events a user can read are the ones they
+        // host or co-host.
         .order('created_at', { referencedTable: 'latest', ascending: false })
         .limit(1, { referencedTable: 'latest' })
 
@@ -258,25 +295,26 @@ export default function DashboardPage() {
         </div>
       ) : (
         <div className="mt-6 flex flex-col gap-3">
-          {events.map((event) => {
-            const count = event.outfit_posts?.[0]?.count ?? 0
-            return (
-              <EventCard
-                key={event.id}
-                href={`/event/${event.invite_code}`}
-                name={event.name}
-                date={event.event_date}
-                location={event.location}
-                type={event.event_type}
-                coverUrl={event.inspo_image_urls?.[0] ?? event.latest?.[0]?.image_url ?? null}
-              >
-                <p className="mt-1 text-xs text-stone-muted">
-                  Code <strong className="tracking-wide text-stone">{event.invite_code}</strong> &middot; {count}{' '}
-                  outfit{count === 1 ? '' : 's'} posted
-                </p>
-              </EventCard>
-            )
-          })}
+          {events
+            .filter((e) => !e.parent_event_id || !events.some((p) => p.id === e.parent_event_id))
+            .map((event) => {
+              // A celebration's parts sit under it, in date order.
+              const parts = events
+                .filter((e) => e.parent_event_id === event.id)
+                .sort((a, b) => a.event_date.localeCompare(b.event_date))
+              return (
+                <div key={event.id}>
+                  <HostEventCard event={event} partCount={parts.length} userId={userId} />
+                  {parts.length > 0 && (
+                    <div className="mt-2 ml-5 flex flex-col gap-2 border-l-2 border-stone-line pl-4">
+                      {parts.map((part) => (
+                        <HostEventCard key={part.id} event={part} userId={userId} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
         </div>
       )}
 

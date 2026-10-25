@@ -112,5 +112,5 @@ export async function sweepStaleTestEvents(): Promise<void> {
     .eq('name', TEST_EVENT_NAME)
     .lt('created_at', cutoff)
   for (const e of data ?? []) await deleteTestEvent(host, { id: e.id, code: e.invite_code })
-  await host.auth.signOut()
+  await host.auth.signOut({ scope: 'local' })
 }

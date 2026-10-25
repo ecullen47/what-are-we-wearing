@@ -9,6 +9,7 @@ import { listEventFiles, removeEventImages, uploadEventImage } from '@/lib/uploa
 import { toPaletteId } from '@/lib/palette'
 import ColorRulesPicker, { type ColorRules } from '@/components/ColorRulesPicker'
 import { announceEventChange } from '@/lib/eventLive'
+import CoHosts from '@/components/CoHosts'
 
 type EventRow = {
   id: string
@@ -75,6 +76,8 @@ export default function EditEventPage() {
   const [message, setMessage] = useState('')
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  // Co-hosts can edit too; only the owner can delete the event.
+  const [userId, setUserId] = useState<string | null>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -89,12 +92,15 @@ export default function EditEventPage() {
         .eq('invite_code', code)
         .maybeSingle()
 
-      if (error || !data || !user || data.host_id !== user.id) {
+      // Only hosts and co-hosts can read the event row, so getting one back
+      // is the permission check.
+      if (error || !data || !user) {
         router.push(`/event/${code}`)
         return
       }
 
       const row = data as EventRow
+      setUserId(user.id)
       setEvent(row)
       setHostDisplayName(row.host_display_name ?? '')
       setName(row.name ?? '')
@@ -440,6 +446,16 @@ export default function EditEventPage() {
         {message && <p className="mt-3 text-sm text-stone-muted">{message}</p>}
       </form>
 
+      {event && userId && (
+        <section className="mt-12">
+          <h2 className={sectionTitle}>Co-hosts</h2>
+          <div className="mt-3">
+            <CoHosts eventId={event.id} eventCode={code} isOwner={event.host_id === userId} userId={userId} />
+          </div>
+        </section>
+      )}
+
+      {event?.host_id === userId && (
       <section className="mt-14 rounded-lg border border-terracotta-dark/30 p-4">
         <h2 className={sectionTitle}>Delete Event</h2>
         <p className="mt-1 text-sm text-stone-muted">
@@ -454,6 +470,7 @@ export default function EditEventPage() {
           {deleting ? 'Deleting...' : 'Delete Event'}
         </button>
       </section>
+      )}
     </div>
   )
 }
