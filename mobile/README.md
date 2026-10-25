@@ -46,6 +46,6 @@ npm run lint
 
 CI runs both on every pull request. The web app's lint and typecheck skip this folder.
 
-## Before an App Store build
+## Icons
 
-The app icon, Android adaptive icon and splash image in `assets/` are still Expo's defaults and need replacing with the app's own artwork.
+`assets/images/` holds the app icon, the Android adaptive icon layers (foreground, background, monochrome), the splash image and the web favicon. All are the web's hanger mark from `app/icon.svg` in terracotta and cream. The iOS icon has no transparency, as the App Store requires.
