@@ -1,5 +1,13 @@
-import { test, expect } from './fixtures'
-import { TEST_EVENT_NAME, createTestEvent, daysFromToday, deleteTestEvent } from '../tests/helpers'
+import { test, expect, liveUpdatesConnected } from './fixtures'
+import {
+  TEST_EVENT_NAME,
+  anonClient,
+  createTestEvent,
+  daysFromToday,
+  deleteTestEvent,
+  fakeImage,
+  newGuestToken,
+} from '../tests/helpers'
 
 test('a host pins an update and adds an event under the celebration', async ({ page, browser, host, event }) => {
   // Logs in, waits on a live update and creates an event, so it runs long
@@ -14,7 +22,9 @@ test('a host pins an update and adds an event under the celebration', async ({ p
 
   // A guest has the page open and sees the update arrive live.
   const guestPage = await (await browser.newContext()).newPage()
+  const guestConnected = liveUpdatesConnected(guestPage)
   await guestPage.goto(`/event/${event.code}`)
+  await guestConnected
   await expect(guestPage.getByText('Update from')).toHaveCount(0)
 
   await page.getByRole('button', { name: '+ Pin an update for your guests' }).click()
@@ -55,10 +65,30 @@ test('a host pins an update and adds an event under the celebration', async ({ p
 test('after the event, the page becomes a keepsake without polls', async ({ page, host }) => {
   const event = await createTestEvent(host, { event_date: daysFromToday(-2) })
   try {
+    for (const name of ['Sam', 'Priya']) {
+      const { error } = await anonClient().rpc('insert_outfit_post', {
+        p_code: event.code,
+        p_display_name: name,
+        p_image_url: fakeImage(event.id, 'what-i-wore'),
+        p_caption: `${name}'s look`,
+        p_guest_token: newGuestToken(),
+        p_colors: [],
+      })
+      expect(error).toBeNull()
+    }
+
     await page.goto(`/event/${event.code}`)
     await expect(page.getByRole('heading', { name: 'Add What You Wore' })).toBeVisible()
     await expect(page.getByRole('tab', { name: 'What everyone wore' })).toBeVisible()
     await expect(page.getByRole('button', { name: /Can't decide/ })).toHaveCount(0)
+
+    // Tapping a photo opens it full size, and the arrows move between them.
+    await page.getByRole('button', { name: "View Sam's outfit full size" }).click()
+    await expect(page.getByRole('dialog').getByText("Sam's look")).toBeVisible()
+    await page.keyboard.press('ArrowRight')
+    await expect(page.getByRole('dialog').getByText("Priya's look")).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('dialog')).toHaveCount(0)
   } finally {
     await deleteTestEvent(host, event)
   }

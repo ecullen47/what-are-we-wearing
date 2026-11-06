@@ -14,7 +14,7 @@ import SwatchPicker from '@/components/SwatchPicker'
 import ColorWarnings from '@/components/ColorWarnings'
 import PollCard, { type PollOption } from '@/components/PollCard'
 import EventGallery from '@/components/EventGallery'
-import PhotoViewer from '@/components/PhotoViewer'
+import PhotoViewer, { type ViewerPhoto } from '@/components/PhotoViewer'
 import EventBadges from '@/components/EventBadges'
 import HostNote from '@/components/HostNote'
 import EventParts, { type EventPart } from '@/components/EventParts'
@@ -77,6 +77,52 @@ function countColors(posts: OutfitPost[], excludeId?: string): Map<string, numbe
   return counts
 }
 
+// The feed's photos in the order they appear, for the full-size viewer.
+function feedViewerPhotos(posts: OutfitPost[]): ViewerPhoto[] {
+  return posts.flatMap((post) => {
+    if (post.is_poll) {
+      const options = [...(post.options ?? [])].sort((a, b) => a.position - b.position)
+      return options.map((o, i) => ({
+        key: o.id,
+        url: o.image_url,
+        alt: `${post.display_name}'s option ${i + 1}`,
+        caption: (
+          <p>
+            <strong>{post.display_name}</strong>
+            <span className="text-cream/80">
+              {' '}
+              — Option {i + 1} of {options.length}
+              {post.caption ? ` · ${post.caption}` : ''}
+            </span>
+          </p>
+        ),
+      }))
+    }
+    return [
+      {
+        key: post.id,
+        url: post.image_url,
+        alt: `${post.display_name}'s outfit`,
+        caption: (
+          <>
+            <p>
+              <strong>{post.display_name}</strong>
+              {post.caption && <span className="text-cream/80"> — {post.caption}</span>}
+            </p>
+            {(post.colors ?? []).length > 0 && (
+              <div className="mt-1.5 flex justify-center gap-1">
+                {(post.colors ?? []).map((c) => (
+                  <SwatchDot key={c} value={c} size="h-4 w-4" />
+                ))}
+              </div>
+            )}
+          </>
+        ),
+      },
+    ]
+  })
+}
+
 // Matches the display_name length check on outfit_posts.
 const MAX_NAME_LENGTH = 100
 
@@ -122,6 +168,9 @@ export default function EventPage() {
   // The outfit feed (post, vote, like, edit) or the photo gallery.
   const [view, setView] = useState<'feed' | 'gallery'>('feed')
   const [inspoOpen, setInspoOpen] = useState<number | null>(null)
+  // The feed photo open full size. A key rather than an index, so a live
+  // update adding or removing posts doesn't change which photo is showing.
+  const [feedPhotoOpen, setFeedPhotoOpen] = useState<string | null>(null)
   const [nameFromLink, setNameFromLink] = useState<string | null>(null)
   // Post currently being voted on / liked / resolved, to disable its buttons.
   const [busyPostId, setBusyPostId] = useState<string | null>(null)
@@ -463,6 +512,8 @@ export default function EventPage() {
   // A celebration with parts is an overview; outfits live on each part.
   const isOverview = parts.length > 0 && posts.length === 0
   const shownPosts = colorFilter ? posts.filter((p) => (p.colors ?? []).includes(colorFilter)) : posts
+  const feedPhotos = feedViewerPhotos(shownPosts)
+  const feedPhotoIndex = feedPhotos.findIndex((p) => p.key === feedPhotoOpen)
   // Inspo images + one photo per outfit + each open poll option.
   const photoCount =
     (event?.inspo_image_urls.length ?? 0) +
@@ -780,15 +831,22 @@ export default function EventPage() {
                   busy={busyPostId === post.id}
                   onVote={(optionId) => handleVote(post, optionId)}
                   onPickWinner={(optionId) => handlePickWinner(post, optionId)}
+                  onOpenPhoto={setFeedPhotoOpen}
                 />
               ) : (
                 <>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={post.image_url}
-                    alt={`${post.display_name}'s outfit`}
-                    className="aspect-square w-full rounded-lg object-cover"
-                  />
+                  <button
+                    onClick={() => setFeedPhotoOpen(post.id)}
+                    aria-label={`View ${post.display_name}'s outfit full size`}
+                    className="group block w-full cursor-zoom-in overflow-hidden rounded-lg"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={post.image_url}
+                      alt={`${post.display_name}'s outfit`}
+                      className="aspect-square w-full object-cover transition-transform group-hover:scale-[1.03]"
+                    />
+                  </button>
                   <p className="mt-1.5 text-sm text-stone">
                     <strong>{post.display_name}</strong>
                     {post.caption ? <span className="text-stone-muted"> — {post.caption}</span> : ''}
@@ -844,6 +902,14 @@ export default function EventPage() {
           )
         )}
       </div>
+      {feedPhotoIndex !== -1 && (
+        <PhotoViewer
+          photos={feedPhotos}
+          index={feedPhotoIndex}
+          onIndexChange={(i) => setFeedPhotoOpen(feedPhotos[i].key)}
+          onClose={() => setFeedPhotoOpen(null)}
+        />
+      )}
       </>
       )}
       </>
