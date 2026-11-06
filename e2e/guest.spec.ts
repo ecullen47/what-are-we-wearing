@@ -20,6 +20,42 @@ test('a guest arriving from a platform link posts an outfit', async ({ page, eve
   await expect(page.getByText('Emerald slip dress')).toBeVisible()
 })
 
+test('tapping a photo in the Outfits feed opens it full size', async ({ page, event }) => {
+  const guest = anonClient()
+  const { error: postError } = await guest.rpc('insert_outfit_post', {
+    p_code: event.code,
+    p_display_name: 'Sam',
+    p_image_url: fakeImage(event.id, 'outfit'),
+    p_caption: 'Emerald slip dress',
+    p_guest_token: newGuestToken(),
+    p_colors: [],
+  })
+  expect(postError).toBeNull()
+  const { error: pollError } = await guest.rpc('create_outfit_poll', {
+    p_code: event.code,
+    p_display_name: 'Priya',
+    p_guest_token: newGuestToken(),
+    p_image_urls: [fakeImage(event.id, 'a'), fakeImage(event.id, 'b')],
+    p_caption: 'Which one?',
+  })
+  expect(pollError).toBeNull()
+
+  await page.goto(`/event/${event.code}`)
+  await expect(page.getByRole('tab', { name: 'Outfits' })).toBeVisible()
+  const viewer = page.getByRole('dialog', { name: 'Photo viewer' })
+
+  await page.getByRole('button', { name: "View Sam's outfit full size" }).click()
+  await expect(viewer.getByText('Emerald slip dress')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(viewer).toHaveCount(0)
+
+  // Poll options open too, without casting a vote.
+  await page.getByRole('button', { name: "View Priya's option 2 full size" }).click()
+  await expect(viewer.getByText('Option 2 of 2')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('button', { name: 'Vote', exact: true })).toHaveCount(2)
+})
+
 test("other guests' posts and likes show up live", async ({ page, browser, event }) => {
   // Someone posts behind this page's back (straight to the database, no
   // ping), so it can only appear here once a live update arrives.

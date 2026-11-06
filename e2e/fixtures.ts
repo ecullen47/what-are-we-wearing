@@ -1,4 +1,4 @@
-import { test as base, expect } from '@playwright/test'
+import { test as base, expect, type Page } from '@playwright/test'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createTestEvent, deleteTestEvent, hostClient, type TestEvent } from '../tests/helpers'
 
@@ -21,6 +21,21 @@ export const test = base.extend<{ host: SupabaseClient; event: TestEvent }>({
 })
 
 export { expect }
+
+// Resolves once a page has joined the event's live-updates channel. Start
+// waiting before going to the page: a change announced earlier never reaches
+// it, which is fine for a real guest (the page loaded the latest) but makes
+// a test that expects a live update flaky.
+export function liveUpdatesConnected(page: Page): Promise<void> {
+  return new Promise((resolve) => {
+    page.on('websocket', (socket) => {
+      socket.on('framereceived', ({ payload }) => {
+        const frame = String(payload)
+        if (frame.includes('phx_reply') && frame.includes('realtime:event:') && frame.includes('"ok"')) resolve()
+      })
+    })
+  })
+}
 
 // A tiny PNG for file inputs; the app resizes and re-encodes it like any
 // photo.

@@ -22,6 +22,7 @@ export default function PollCard({
   busy,
   onVote,
   onPickWinner,
+  onOpenPhoto,
 }: {
   displayName: string
   caption: string | null
@@ -34,6 +35,7 @@ export default function PollCard({
   busy: boolean
   onVote: (optionId: string) => void
   onPickWinner: (optionId: string) => void
+  onOpenPhoto: (optionId: string) => void
 }) {
   const showResults = totalVotes !== null
   const leading = showResults ? Math.max(...options.map((o) => o.votes ?? 0)) : 0
@@ -54,14 +56,20 @@ export default function PollCard({
           return (
             <div key={o.id} className="flex flex-col">
               <div className="relative">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={o.image_url}
-                  alt={`${displayName}'s option ${i + 1}`}
-                  className={`aspect-[3/4] w-full rounded-lg object-cover ${
-                    isMyVote ? 'ring-2 ring-terracotta ring-offset-2 ring-offset-cream' : ''
-                  }`}
-                />
+                <button
+                  onClick={() => onOpenPhoto(o.id)}
+                  aria-label={`View ${displayName}'s option ${i + 1} full size`}
+                  className="block w-full cursor-zoom-in rounded-lg"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={o.image_url}
+                    alt={`${displayName}'s option ${i + 1}`}
+                    className={`aspect-[3/4] w-full rounded-lg object-cover ${
+                      isMyVote ? 'ring-2 ring-terracotta ring-offset-2 ring-offset-cream' : ''
+                    }`}
+                  />
+                </button>
                 <span className="absolute top-1.5 left-1.5 rounded-full bg-cream/90 px-2 py-0.5 text-[10px] font-medium text-stone">
                   {i + 1}
                 </span>
